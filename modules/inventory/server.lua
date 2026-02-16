@@ -1,6 +1,7 @@
 if not lib then return end
 
 local Inventory = {}
+local GridUtils = require 'modules.inventory.gridutils'
 
 ---@type table<any, OxInventory>
 local Inventories = {}
@@ -27,8 +28,26 @@ end
 
 ---Close a player's inventory.
 ---@param noEvent? boolean
-function OxInventory:closeInventory(noEvent)
-	if not self.player or not self.open then return end
+---@param keepBackpack? boolean If true, preserve the open backpack (used when switching right inventories).
+function OxInventory:closeInventory(noEvent, keepBackpack)
+	if not self.player then return end
+
+	if not keepBackpack and self.openBackpack then
+		local backpack = Inventory(self.openBackpack)
+
+		if backpack then
+			if backpack.openedBy then backpack.openedBy[self.id] = nil end
+
+			if backpack.changed then
+				Inventory.Save(backpack)
+			end
+		end
+
+		self.openBackpack = nil
+		self.backpackSlot = nil
+	end
+
+	if not self.open then return end
 
 	local inv = Inventory(self.open)
 
@@ -287,7 +306,7 @@ function Inventory.CloseAll(inv, ignoreId)
 		return TriggerClientEvent('ox_inventory:closeInventory', -1, true)
 	end
 
-	inv = Inventory(inv) --[[@as OxInventory?]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 
@@ -304,7 +323,7 @@ end
 ---@param k string
 ---@param v any
 function Inventory.Set(inv, k, v)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if inv then
 		if type(v) == 'number' then
@@ -336,7 +355,7 @@ end
 ---@param inv inventory
 ---@param key string
 function Inventory.Get(inv, key)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 	if inv then
 		return inv[key]
 	end
@@ -351,7 +370,7 @@ end
 ---@param inv inventory
 ---@return MinimalInventorySlot[] items
 local function minimal(inv)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 	local inventory, count = {}, 0
 	for k, v in pairs(inv.items) do
 		if v.name and v.count > 0 then
@@ -360,7 +379,10 @@ local function minimal(inv)
 				name = v.name,
 				count = v.count,
 				slot = k,
-				metadata = next(v.metadata) and v.metadata or nil
+				metadata = next(v.metadata) and v.metadata or nil,
+				gridX = v.gridX,
+				gridY = v.gridY,
+				gridRotated = v.gridRotated,
 			}
 		end
 	end
@@ -372,10 +394,11 @@ end
 ---@param count number
 ---@param metadata any
 ---@param slot any
-function Inventory.SetSlot(inv, item, count, metadata, slot)
-	inv = Inventory(inv) --[[@as OxInventory]]
+function Inventory.SetSlot(inv, item, count, metadata, slot, skipGridPlacement)
+	inv = Inventory(inv)
 
 	if not inv then return end
+	if not slot then print('[ox_inventory] SetSlot called with nil slot') return end
 
 	local currentSlot = inv.items[slot]
 	local newCount = currentSlot and currentSlot.count + count or count
@@ -385,12 +408,34 @@ function Inventory.SetSlot(inv, item, count, metadata, slot)
 		TriggerClientEvent('ox_inventory:itemNotify', inv.id, { currentSlot, 'ui_removed', currentSlot.count })
 		currentSlot = nil
 	else
-		currentSlot = {name = item.name, label = item.label, weight = item.weight, slot = slot, count = newCount, description = item.description, metadata = metadata, stack = item.stack, close = item.close}
+		local prevGridX = currentSlot and currentSlot.gridX
+		local prevGridY = currentSlot and currentSlot.gridY
+		local prevGridRotated = currentSlot and currentSlot.gridRotated
+		currentSlot = {name = item.name, label = item.label, weight = item.weight, slot = slot, count = newCount, description = item.description, metadata = metadata, stack = item.stack, close = item.close, gridX = prevGridX, gridY = prevGridY, gridRotated = prevGridRotated}
 		local slotWeight = Inventory.SlotWeight(item, currentSlot)
 		currentSlot.weight = slotWeight
 		newWeight += slotWeight
 
 		TriggerClientEvent('ox_inventory:itemNotify', inv.id, { currentSlot, count < 0 and 'ui_removed' or 'ui_added', math.abs(count) })
+	end
+
+	if not skipGridPlacement and currentSlot and not currentSlot.gridX and GridUtils.IsGridInventory(inv.type) then
+		local gridWidth = inv.gridWidth or shared.gridwidth or 12
+		local gridHeight = inv.gridHeight or shared.gridheight or 5
+		local grid = GridUtils.BuildOccupancy(inv, slot)
+		local w, h
+		if item.weapon and currentSlot.metadata and currentSlot.metadata.components then
+			w, h = GridUtils.ComputeWeaponSize(item, currentSlot.metadata)
+		else
+			w = item.width or 1
+			h = item.height or 1
+		end
+		local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+		if gx then
+			currentSlot.gridX = gx
+			currentSlot.gridY = gy
+			currentSlot.gridRotated = rotated or false
+		end
 	end
 
 	inv.weight = newWeight
@@ -567,6 +612,8 @@ end, true)
 function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, items, groups, dbId)
 	if invType == 'player' and hasActiveInventory(id, owner) then return end
 
+	local gridWidth, gridHeight = GridUtils.GetDimensions(invType)
+
 	local self = {
 		id = id,
 		label = label or id,
@@ -583,7 +630,9 @@ function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, i
 		time = os.time(),
 		groups = groups,
 		openedBy = {},
-        dbId = dbId
+        dbId = dbId,
+		gridWidth = gridWidth,
+		gridHeight = gridHeight,
 	}
 
 	if invType == 'drop' or invType == 'temp' or invType == 'dumpster' then
@@ -606,13 +655,64 @@ function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, i
 		self.weight = Inventory.CalculateWeight(items)
 	end
 
+	if items and GridUtils.IsGridInventory(invType) then
+		local needsPlacement = false
+		for _, v in pairs(items) do
+			if v and v.name and v.gridX == nil then
+				needsPlacement = true
+				break
+			end
+		end
+
+		if needsPlacement then
+			local positioned = {}
+			for slot, v in pairs(items) do
+				if v and v.name and v.gridX ~= nil then
+					positioned[slot] = v
+				end
+			end
+			local grid = GridUtils.BuildOccupancy({items = positioned, gridWidth = gridWidth, gridHeight = gridHeight})
+
+			for slot, v in pairs(items) do
+				if v and v.name and v.gridX == nil then
+					local itemData = Items(v.name)
+					local w = itemData and itemData.width or 1
+					local h = itemData and itemData.height or 1
+					local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+
+					if gx then
+						v.gridX = gx
+						v.gridY = gy
+						v.gridRotated = rotated or false
+
+						local ew, eh = w, h
+						if rotated then ew, eh = eh, ew end
+						for dy = 0, eh - 1 do
+							for dx = 0, ew - 1 do
+								if grid[gy + dy] and grid[gy + dy][gx + dx] ~= nil then
+									grid[gy + dy][gx + dx] = slot
+								end
+							end
+						end
+					else
+						v.gridX = 0
+						v.gridY = 0
+						v.gridRotated = false
+					end
+				end
+			end
+
+			self.changed = true
+		end
+	end
+
 	Inventories[self.id] = setmetatable(self, OxInventory)
 	return Inventories[self.id]
 end
 
 ---@param inv inventory
 function Inventory.Remove(inv)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 
@@ -681,7 +781,7 @@ end
 exports('UpdateVehicle', Inventory.UpdateVehicle)
 
 function Inventory.Save(inv)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv or inv.datastore then return end
 
@@ -694,7 +794,10 @@ function Inventory.Save(inv)
                 name = v.name,
                 count = v.count,
                 slot = k,
-                metadata = next(v.metadata) and v.metadata or nil
+                metadata = next(v.metadata) and v.metadata or nil,
+                gridX = v.gridX,
+                gridY = v.gridY,
+                gridRotated = v.gridRotated,
             }
         end
     end
@@ -785,6 +888,9 @@ local function generateItems(inv, invType, items)
 	end
 
 	local returnData, totalWeight = table.create(#items, 0), 0
+	local gridWidth, gridHeight = GridUtils.GetDimensions(invType == 'vehicle' and 'trunk' or invType)
+	local grid = GridUtils.BuildOccupancy({items = {}, gridWidth = gridWidth, gridHeight = gridHeight})
+
 	for i = 1, #items do
 		local v = items[i]
 		local item = Items(v[1])
@@ -794,7 +900,24 @@ local function generateItems(inv, invType, items)
 			local metadata, count = Items.Metadata(inv, item, v[3] or {}, v[2])
 			local weight = Inventory.SlotWeight(item, {count=count, metadata=metadata})
 			totalWeight = totalWeight + weight
-			returnData[i] = {name = item.name, label = item.label, weight = weight, slot = i, count = count, description = item.description, metadata = metadata, stack = item.stack, close = item.close}
+
+			local w = item.width or 1
+			local h = item.height or 1
+			local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+
+			returnData[i] = {name = item.name, label = item.label, weight = weight, slot = i, count = count, description = item.description, metadata = metadata, stack = item.stack, close = item.close, gridX = gx or 0, gridY = gy or 0, gridRotated = rotated or false}
+
+			if gx then
+				local ew, eh = w, h
+				if rotated then ew, eh = eh, ew end
+				for dy = 0, eh - 1 do
+					for dx = 0, ew - 1 do
+						if grid[gy + dy] and grid[gy + dy][gx + dx] ~= nil then
+							grid[gy + dy][gx + dx] = i
+						end
+					end
+				end
+			end
 		end
 	end
 
@@ -842,7 +965,58 @@ function Inventory.Load(id, invType, owner)
 				v.metadata = Items.CheckMetadata(v.metadata or {}, item, v.name, ostime)
 				local slotWeight = Inventory.SlotWeight(item, v)
 				weight += slotWeight
-				returnData[v.slot] = {name = item.name, label = item.label, weight = slotWeight, slot = v.slot, count = v.count, description = item.description, metadata = v.metadata, stack = item.stack, close = item.close}
+				returnData[v.slot] = {name = item.name, label = item.label, weight = slotWeight, slot = v.slot, count = v.count, description = item.description, metadata = v.metadata, stack = item.stack, close = item.close, gridX = v.gridX, gridY = v.gridY, gridRotated = v.gridRotated}
+			end
+		end
+
+		if GridUtils.IsGridInventory(invType) then
+			local gridWidth, gridHeight = GridUtils.GetDimensions(invType)
+			local needsPlacement = false
+
+			for _, v in pairs(returnData) do
+				if v.gridX == nil then
+					needsPlacement = true
+					break
+				end
+			end
+
+			if needsPlacement then
+				local positioned = {}
+				for slot, v in pairs(returnData) do
+					if v.gridX ~= nil then
+						positioned[slot] = v
+					end
+				end
+				local grid = GridUtils.BuildOccupancy({items = positioned, gridWidth = gridWidth, gridHeight = gridHeight})
+
+				for slot, v in pairs(returnData) do
+					if v.gridX == nil then
+						local item = Items(v.name)
+						local w = item and item.width or 1
+						local h = item and item.height or 1
+						local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+
+						if gx then
+							v.gridX = gx
+							v.gridY = gy
+							v.gridRotated = rotated or false
+
+											local ew, eh = w, h
+							if rotated then ew, eh = eh, ew end
+							for dy = 0, eh - 1 do
+								for dx = 0, ew - 1 do
+									if grid[gy + dy] and grid[gy + dy][gx + dx] ~= nil then
+										grid[gy + dy][gx + dx] = slot
+									end
+								end
+							end
+						else
+							v.gridX = 0
+							v.gridY = 0
+							v.gridRotated = false
+						end
+					end
+				end
 			end
 		end
 	end
@@ -868,7 +1042,7 @@ function Inventory.GetItem(inv, item, metadata, returnsCount)
 
 	if item then
 		item = returnsCount and item or table.clone(item)
-		inv = Inventory(inv) --[[@as OxInventory]]
+		inv = Inventory(inv)
 		local count = 0
 
 		if inv then
@@ -901,6 +1075,12 @@ function Inventory.SwapSlots(fromInventory, toInventory, slot1, slot2)
 	if fromSlot then fromSlot.slot = slot2 end
 	if toSlot then toSlot.slot = slot1 end
 
+	if fromSlot and toSlot then
+		local fgx, fgy, fgr = fromSlot.gridX, fromSlot.gridY, fromSlot.gridRotated
+		fromSlot.gridX, fromSlot.gridY, fromSlot.gridRotated = toSlot.gridX, toSlot.gridY, toSlot.gridRotated
+		toSlot.gridX, toSlot.gridY, toSlot.gridRotated = fgx, fgy, fgr
+	end
+
 	fromInventory.items[slot1], toInventory.items[slot2] = toSlot, fromSlot
 	fromInventory.changed, toInventory.changed = true, true
 
@@ -930,12 +1110,12 @@ function Inventory.SetItem(inv, item, count, metadata)
 	count = math.floor(count + 0.5)
 	if count < 0 then return false, 'negative_count' end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return false, 'invalid_inventory' end
 
 	inv.changed = true
-	local itemCount = Inventory.GetItem(inv, item.name, metadata, true) --[[@as number]]
+	local itemCount = Inventory.GetItem(inv, item.name, metadata, true)
 
 	if count > itemCount then
 		count -= itemCount
@@ -949,7 +1129,7 @@ exports('SetItem', Inventory.SetItem)
 
 ---@param inv inventory
 function Inventory.GetCurrentWeapon(inv)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if inv?.player then
 		local weapon = inv.items[inv.weapon]
@@ -969,7 +1149,7 @@ exports('GetCurrentWeapon', Inventory.GetCurrentWeapon)
 function Inventory.GetSlot(inv, slotId)
 	if not inv or type(slotId) ~= 'number' then return end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 	local slot = inv and inv.items?[slotId]
 
 	if slot and not Items.UpdateDurability(inv, slot, Items(slot.name), nil, os.time()) then
@@ -984,7 +1164,7 @@ exports('GetSlot', Inventory.GetSlot)
 function Inventory.SetDurability(inv, slotId, durability)
 	if not inv or type(slotId) ~= 'number' or type(durability) ~= 'number' then return end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 	local slot = inv and inv.items?[slotId]
 
 	if not slot then return end
@@ -1005,7 +1185,7 @@ local Utils = require 'modules.utils.server'
 function Inventory.SetMetadata(inv, slotId, metadata)
 	if not inv or type(slotId) ~= 'number' then return end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 	local slot = inv and inv.items?[slotId]
 
 	if not slot then return end
@@ -1051,7 +1231,7 @@ exports('SetMetadata', Inventory.SetMetadata)
 ---@param inv inventory
 ---@param slots number
 function Inventory.SetSlotCount(inv, slots)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 	if type(slots) ~= 'number' then return end
@@ -1075,7 +1255,7 @@ exports('SetSlotCount', Inventory.SetSlotCount)
 ---@param inv inventory
 ---@param maxWeight number
 function Inventory.SetMaxWeight(inv, maxWeight)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 	if type(maxWeight) ~= 'number' then return end
@@ -1111,7 +1291,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 	count = math.floor(count + 0.5)
 	if count <= 0 then return false, 'negative_count' end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv?.slots then return false, 'invalid_inventory' end
 
@@ -1129,29 +1309,102 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		end
 	end
 
+	local isGrid = GridUtils.IsGridInventory(inv.type)
+	local gridPlacement
+
 	if not toSlot then
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		for i = 1, inv.slots do
-			local slotData = items[i]
-
-			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
-				toSlot = i
-				break
-			elseif not item.stack and not slotData then
-				if not toSlot then toSlot = {} end
-
-				toSlot[#toSlot + 1] = { slot = i, count = slotCount, metadata = slotMetadata }
-
-				if count == slotCount then
+		if isGrid then
+			for k, slotData in pairs(items) do
+				if item.stack and slotData and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
+					toSlot = k
 					break
 				end
+			end
 
-				count -= 1
-				slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
-			elseif not toSlot and not slotData then
-				toSlot = i
+			if not toSlot then
+				local gridWidth = inv.gridWidth or shared.gridwidth or 12
+				local gridHeight = inv.gridHeight or shared.gridheight or 5
+				local grid = GridUtils.BuildOccupancy(inv)
+				local w, h
+				if item.weapon and slotMetadata and slotMetadata.components then
+					w, h = GridUtils.ComputeWeaponSize(item, slotMetadata)
+				else
+					w = item.width or 1
+					h = item.height or 1
+				end
+
+				if not item.stack then
+					toSlot = {}
+					for _ = 1, count do
+						local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+						if not gx then break end
+
+						local newSlot = 1
+						for k2 in pairs(items) do
+							if type(k2) == 'number' and k2 >= newSlot then
+								newSlot = k2 + 1
+							end
+						end
+						for _, ts in ipairs(toSlot) do
+							if ts.slot >= newSlot then newSlot = ts.slot + 1 end
+						end
+
+						toSlot[#toSlot + 1] = { slot = newSlot, count = slotCount, metadata = slotMetadata, gridX = gx, gridY = gy, gridRotated = rotated or false }
+
+						local ew, eh = w, h
+						if rotated then ew, eh = eh, ew end
+						for dy = 0, eh - 1 do
+							for dx = 0, ew - 1 do
+								if grid[gy + dy] and grid[gy + dy][gx + dx] ~= nil then
+									grid[gy + dy][gx + dx] = newSlot
+								end
+							end
+						end
+
+						count -= 1
+						if count < 1 then break end
+						slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
+					end
+
+					if #toSlot == 0 then toSlot = nil end
+				else
+						local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+					if gx then
+						local newSlot = 1
+						for k2 in pairs(items) do
+							if type(k2) == 'number' and k2 >= newSlot then
+								newSlot = k2 + 1
+							end
+						end
+						toSlot = newSlot
+						gridPlacement = { gridX = gx, gridY = gy, gridRotated = rotated or false }
+					end
+				end
+			end
+		else
+				for i = 1, inv.slots do
+				local slotData = items[i]
+
+				if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
+					toSlot = i
+					break
+				elseif not item.stack and not slotData then
+					if not toSlot then toSlot = {} end
+
+					toSlot[#toSlot + 1] = { slot = i, count = slotCount, metadata = slotMetadata }
+
+					if count == slotCount then
+						break
+					end
+
+					count -= 1
+					slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
+				elseif not toSlot and not slotData then
+					toSlot = i
+				end
 			end
 		end
 	end
@@ -1164,7 +1417,13 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 	local toSlotType = type(toSlot)
 
 	if toSlotType == 'number' then
-		Inventory.SetSlot(inv, item, slotCount, slotMetadata, toSlot)
+		Inventory.SetSlot(inv, item, slotCount, slotMetadata, toSlot, gridPlacement and true or nil)
+
+		if gridPlacement and inv.items[toSlot] then
+			inv.items[toSlot].gridX = gridPlacement.gridX
+			inv.items[toSlot].gridY = gridPlacement.gridY
+			inv.items[toSlot].gridRotated = gridPlacement.gridRotated
+		end
 
 		if inv.player and server.syncInventory then
 			server.syncInventory(inv)
@@ -1189,7 +1448,14 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		for i = 1, #toSlot do
 			local data = toSlot[i]
 			added += data.count
-			Inventory.SetSlot(inv, item, data.count, data.metadata, data.slot)
+			Inventory.SetSlot(inv, item, data.count, data.metadata, data.slot, data.gridX and true or nil)
+
+			if data.gridX and inv.items[data.slot] then
+				inv.items[data.slot].gridX = data.gridX
+				inv.items[data.slot].gridY = data.gridY
+				inv.items[data.slot].gridRotated = data.gridRotated
+			end
+
 			toSlot[i] = { item = inv.items[data.slot], inventory = inv.id }
 		end
 
@@ -1226,7 +1492,7 @@ exports('AddItem', Inventory.AddItem)
 ---@param metadata? table | string
 function Inventory.Search(inv, search, items, metadata)
 	if items then
-		inv = Inventory(inv) --[[@as OxInventory]]
+		inv = Inventory(inv)
 
 		if inv then
 			inv = inv.items
@@ -1279,16 +1545,17 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 	if type(item) ~= 'table' then item = Items(item) end
 	if not item then return end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
-	if not inv?.slots then return end
+	inv = Inventory(inv)
+	if not inv?.slots and not GridUtils.IsGridInventory(inv?.type) then return end
 
-	local totalCount, slots, emptySlots = 0, {}, inv.slots
+	local totalCount, slots = 0, {}
 
 	if strict == nil then strict = true end
 	local tablematch = strict and table.matches or table.contains
 
+	local itemCount = 0
 	for k, v in pairs(inv.items) do
-		emptySlots -= 1
+		itemCount = itemCount + 1
 		if v.name == item.name then
 			if metadata and v.metadata == nil then
 				v.metadata = {}
@@ -1298,6 +1565,16 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 				slots[k] = v.count
 			end
 		end
+	end
+
+	local emptySlots
+	if GridUtils.IsGridInventory(inv.type) then
+		local gridWidth = inv.gridWidth or shared.gridwidth or 10
+		local gridHeight = inv.gridHeight or shared.gridheight or 7
+		emptySlots = (gridWidth * gridHeight) - itemCount
+		if emptySlots < 0 then emptySlots = 0 end
+	else
+		emptySlots = inv.slots - itemCount
 	end
 
 	return slots, totalCount, emptySlots
@@ -1321,7 +1598,7 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 	count = math.floor(count + 0.5)
 	if count <= 0 then return false, 'negative_count' end
 
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv?.slots then return false, 'invalid_inventory' end
 
@@ -1407,7 +1684,7 @@ function Inventory.CanCarryItem(inv, item, count, metadata)
 	if type(item) ~= 'table' then item = Items(item) end
 
 	if item then
-		inv = Inventory(inv) --[[@as OxInventory]]
+		inv = Inventory(inv)
 
 		if inv then
 			local itemSlots, _, emptySlots = Inventory.GetItemSlots(inv, item, type(metadata) == 'table' and metadata or { type = metadata or nil })
@@ -1416,15 +1693,29 @@ function Inventory.CanCarryItem(inv, item, count, metadata)
 
 			local weight = metadata and metadata.weight or item.weight
 
-			if next(itemSlots) or emptySlots > 0 then
+			local isGrid = GridUtils.IsGridInventory(inv.type)
+
+			if next(itemSlots) or emptySlots > 0 or isGrid then
 				if not count then count = 1 end
-				if not item.stack and emptySlots < count then return false end
-				if weight == 0 then return true end
 
-				local newWeight = inv.weight + (weight * count)
+				if not item.stack and not isGrid and emptySlots < count then return false end
 
-				if newWeight > inv.maxWeight then
-					return false
+				if weight ~= 0 then
+					local newWeight = inv.weight + (weight * count)
+					if newWeight > inv.maxWeight then
+						return false
+					end
+				end
+
+				if isGrid and not next(itemSlots) then
+					local gridWidth = inv.gridWidth or shared.gridwidth or 10
+					local gridHeight = inv.gridHeight or shared.gridheight or 7
+					local grid = GridUtils.BuildOccupancy(inv)
+					local w = item.width or 1
+					local h = item.height or 1
+					if not GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h) then
+						return false
+					end
 				end
 
 				return true
@@ -1438,11 +1729,55 @@ exports('CanCarryItem', Inventory.CanCarryItem)
 ---@param item table | string
 function Inventory.CanCarryAmount(inv, item)
     if type(item) ~= 'table' then item = Items(item) end
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
     if inv and item then
-		local availableWeight = inv.maxWeight - inv.weight
-		return math.floor(availableWeight / item.weight)
+		local weightAmount = item.weight > 0 and math.floor((inv.maxWeight - inv.weight) / item.weight) or 1000000
+
+		if GridUtils.IsGridInventory(inv.type) then
+			local gridWidth = inv.gridWidth or shared.gridwidth or 10
+			local gridHeight = inv.gridHeight or shared.gridheight or 7
+			local grid = GridUtils.BuildOccupancy(inv)
+			local w = item.width or 1
+			local h = item.height or 1
+			local gridAmount = 0
+
+			if item.stack then
+				local hasStack = false
+				for _, slotData in pairs(inv.items) do
+					if slotData and slotData.name == item.name then
+						hasStack = true
+						break
+					end
+				end
+
+				if hasStack then
+					gridAmount = weightAmount
+				else
+					gridAmount = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h) and weightAmount or 0
+				end
+			else
+				for _ = 1, weightAmount do
+					local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+					if not gx then break end
+					gridAmount = gridAmount + 1
+
+					local ew, eh = w, h
+					if rotated then ew, eh = eh, ew end
+					for dy = 0, eh - 1 do
+						for dx = 0, ew - 1 do
+							if grid[gy + dy] and grid[gy + dy][gx + dx] ~= nil then
+								grid[gy + dy][gx + dx] = true
+							end
+						end
+					end
+				end
+			end
+
+			return math.min(weightAmount, gridAmount)
+		end
+
+		return weightAmount
     end
 end
 
@@ -1451,7 +1786,7 @@ exports('CanCarryAmount', Inventory.CanCarryAmount)
 ---@param inv inventory
 ---@param weight number
 function Inventory.CanCarryWeight(inv, weight)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 
@@ -1467,7 +1802,7 @@ exports('CanCarryWeight', Inventory.CanCarryWeight)
 ---@param testItem string
 ---@param testItemCount number
 function Inventory.CanSwapItem(inv, firstItem, firstItemCount, testItem, testItemCount)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv then return end
 
@@ -1560,18 +1895,25 @@ local TriggerEventHooks = require 'modules.hooks.server'
 ---@field fromType string
 ---@field toType string
 ---@field coords? vector3
+---@field toGridX? number
+---@field toGridY? number
+---@field rotated? boolean
 
 ---@param source number
 ---@param playerInventory OxInventory
+---@param fromInventory OxInventory
 ---@param fromData SlotWithItem?
 ---@param data SwapSlotData
-local function dropItem(source, playerInventory, fromData, data)
+local function dropItem(source, playerInventory, fromInventory, fromData, data)
     if not fromData then return end
 
 	local toData = table.clone(fromData)
 	toData.slot = data.toSlot
 	toData.count = data.count
 	toData.weight = Inventory.SlotWeight(Items(toData.name), toData)
+	toData.gridX = 0
+	toData.gridY = 0
+	toData.gridRotated = false
 
     if toData.weight > shared.dropweight then return end
 
@@ -1579,9 +1921,9 @@ local function dropItem(source, playerInventory, fromData, data)
 
 	if not TriggerEventHooks('swapItems', {
 		source = source,
-		fromInventory = playerInventory.id,
+		fromInventory = fromInventory.id,
 		fromSlot = fromData,
-		fromType = playerInventory.type,
+		fromType = fromInventory.type,
 		toInventory = 'newdrop',
 		toSlot = data.toSlot,
 		toType = 'drop',
@@ -1600,10 +1942,10 @@ local function dropItem(source, playerInventory, fromData, data)
     end
 
 	local slot = data.fromSlot
-	playerInventory.weight -= toData.weight
-	playerInventory.items[slot] = fromData
+	fromInventory.weight -= toData.weight
+	fromInventory.items[slot] = fromData
 
-	if slot == playerInventory.weapon then
+	if fromInventory == playerInventory and slot == playerInventory.weapon then
 		playerInventory.weapon = nil
 	end
 
@@ -1613,24 +1955,37 @@ local function dropItem(source, playerInventory, fromData, data)
 
 	inventory.coords = data.coords
 	Inventory.Drops[dropId] = {coords = inventory.coords, instance = data.instance}
-	playerInventory.changed = true
+	fromInventory.changed = true
 
 	TriggerClientEvent('ox_inventory:createDrop', -1, dropId, Inventory.Drops[dropId], playerInventory.open and source, slot)
 
 	if server.loglevel > 0 then
-		lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s"'):format(data.count, toData.name, playerInventory.label, dropId))
+		lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s"'):format(data.count, toData.name, fromInventory.label or fromInventory.id, dropId))
+	end
+
+	local responseItems = {
+		{
+			item = fromData or { slot = data.fromSlot },
+			inventory = fromInventory.id
+		}
+	}
+
+	if fromInventory.type == 'backpack' and playerInventory.backpackSlot then
+		local backpackItem = playerInventory.items[playerInventory.backpackSlot]
+		if backpackItem then
+			Inventory.ContainerWeight(backpackItem, fromInventory.weight, playerInventory)
+			responseItems[#responseItems + 1] = {
+				item = backpackItem,
+				inventory = playerInventory.id
+			}
+		end
 	end
 
 	if server.syncInventory then server.syncInventory(playerInventory) end
 
 	return true, {
 		weight = playerInventory.weight,
-		items = {
-			{
-				item = fromData or { slot = data.fromSlot },
-				inventory = playerInventory.id
-			}
-		}
+		items = responseItems
 	}
 end
 
@@ -1645,10 +2000,20 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 	if not playerInventory then return end
 
-	local toInventory = (data.toType == 'player' and playerInventory) or Inventory(playerInventory.open)
-	local fromInventory = (data.fromType == 'player' and playerInventory) or Inventory(playerInventory.open)
+	local function resolveInventory(invType)
+		if invType == 'player' then return playerInventory
+		elseif invType == 'backpack' then return playerInventory.openBackpack and Inventory(playerInventory.openBackpack)
+		else return Inventory(playerInventory.open)
+		end
+	end
+
+	local toInventory = resolveInventory(data.toType)
+	local fromInventory = resolveInventory(data.fromType)
 
 	if not fromInventory or not toInventory then
+		if (data.fromType == 'backpack' and not fromInventory) or (data.toType == 'backpack' and not toInventory) then
+			return false
+		end
 		playerInventory:closeInventory()
 		return
 	end
@@ -1692,6 +2057,75 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 		activeSlots[toRef] = nil
 	end)
 
+	if sameInventory and data.fromSlot == data.toSlot and data.toGridX ~= nil then
+		local fromData = fromInventory.items[data.fromSlot]
+		if fromData and GridUtils.IsGridInventory(fromInventory.type) then
+			local gridWidth = fromInventory.gridWidth or shared.gridwidth or 12
+			local gridHeight = fromInventory.gridHeight or shared.gridheight or 5
+			local itemData = Items(fromData.name)
+			local w, h
+			if itemData and itemData.weapon and fromData.metadata and fromData.metadata.components then
+				w, h = GridUtils.ComputeWeaponSize(itemData, fromData.metadata)
+			else
+				w = itemData and itemData.width or 1
+				h = itemData and itemData.height or 1
+			end
+			if data.rotated then w, h = h, w end
+
+			local gx = math.floor(tonumber(data.toGridX) or 0)
+			local gy = math.floor(tonumber(data.toGridY) or 0)
+
+			local grid = GridUtils.BuildOccupancy(fromInventory, data.fromSlot)
+			if not GridUtils.CanPlace(grid, gridWidth, gridHeight, gx, gy, w, h) then
+				print(('[ox_inventory] grid_collision (reposition): item=%s slot=%d gx=%d gy=%d w=%d h=%d gridW=%d gridH=%d'):format(
+					fromData.name, data.fromSlot, gx, gy, w, h, gridWidth, gridHeight
+				))
+				for dy = 0, h - 1 do
+					for dx = 0, w - 1 do
+						local cy, cx = gy + dy, gx + dx
+						if grid[cy] and grid[cy][cx] then
+							local blockingItem = fromInventory.items[grid[cy][cx]]
+							print(('[ox_inventory]   cell (%d,%d) occupied by slot %s (%s at gridX=%s gridY=%s)'):format(
+								cx, cy, tostring(grid[cy][cx]),
+								blockingItem and blockingItem.name or '?',
+								blockingItem and tostring(blockingItem.gridX) or '?',
+								blockingItem and tostring(blockingItem.gridY) or '?'
+							))
+						elseif not grid[cy] or grid[cy][cx] == nil then
+							print(('[ox_inventory]   cell (%d,%d) out of bounds'):format(cx, cy))
+						end
+					end
+				end
+				return false, 'grid_collision'
+			end
+
+			fromData.gridX = gx
+			fromData.gridY = gy
+			fromData.gridRotated = data.rotated or false
+			if fromInventory.changed ~= nil then fromInventory.changed = true end
+
+			if fromInventory.type == 'backpack' and fromInventory.openedBy then
+				fromInventory.openedBy[source] = nil
+				fromInventory:syncSlotsWithClients({
+					{
+						item = fromData,
+						inventory = fromInventory.id
+					}
+				}, true)
+				fromInventory.openedBy[source] = true
+			else
+				fromInventory:syncSlotsWithClients({
+					{
+						item = fromData,
+						inventory = fromInventory.id
+					}
+				}, true)
+			end
+
+			return true
+		end
+	end
+
 	if toInventory and (data.toType == 'newdrop' or fromInventory ~= toInventory or data.fromSlot ~= data.toSlot) then
 		local fromData = fromInventory.items[data.fromSlot]
 
@@ -1713,18 +2147,47 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
         end
 
         if data.toType == 'newdrop' then
-            return dropItem(source, playerInventory, fromData, data)
+            if playerInventory.backpackSlot == data.fromSlot and fromData.metadata and fromData.metadata.isBackpack then
+                local backpack = Inventory(playerInventory.openBackpack)
+                if backpack then
+                    if backpack.openedBy then backpack.openedBy[source] = nil end
+                    backpack.changed = true
+                end
+                playerInventory.openBackpack = nil
+                playerInventory.backpackSlot = nil
+            end
+            return dropItem(source, playerInventory, fromInventory, fromData, data)
         end
 
 		if fromData then
             if fromData.metadata.container and toInventory.type == 'container' then return false end
             if toData and toData.metadata.container and fromInventory.type == 'container' then return false end
 
+            if fromData.metadata.container and toInventory.type == 'backpack' then return false end
+            if toData and toData.metadata and toData.metadata.container and fromInventory.type == 'backpack' then return false end
+
+            if fromData.metadata.isBackpack and toInventory.type == 'container' then return false end
+
+			if fromInventory.type == 'player' and playerInventory.backpackSlot == data.fromSlot
+				and fromData.metadata.isBackpack then
+				local backpack = Inventory(playerInventory.openBackpack)
+				if backpack then
+					if backpack.openedBy then backpack.openedBy[source] = nil end
+					if backpack.changed then Inventory.Save(backpack) end
+				end
+				playerInventory.openBackpack = nil
+				playerInventory.backpackSlot = nil
+			end
+
 			local container, containerItem = (not sameInventory and playerInventory.containerSlot) and (fromInventory.type == 'container' and fromInventory or toInventory)
 
 			if container then
 				containerItem = playerInventory.items[playerInventory.containerSlot]
 			end
+
+			local backpackItem = (not sameInventory and playerInventory.backpackSlot)
+				and (fromInventory.type == 'backpack' or toInventory.type == 'backpack')
+				and playerInventory.items[playerInventory.backpackSlot] or nil
 
 			local hookPayload = {
 				source = source,
@@ -1738,7 +2201,6 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 			}
 
 			if toData and ((toData.name ~= fromData.name) or not toData.stack or (not table.matches(toData.metadata, fromData.metadata))) then
-				-- Swap items
 				local toWeight = not sameInventory and (toInventory.weight - toData.weight + fromData.weight) or 0
 				local fromWeight = not sameInventory and (fromInventory.weight + toData.weight - fromData.weight) or 0
 				hookPayload.action = 'swap'
@@ -1760,6 +2222,19 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 							Inventory.ContainerWeight(containerItem, toContainer and toWeight or fromWeight, playerInventory)
 						end
 
+						if backpackItem then
+							local toBackpack = toInventory.type == 'backpack'
+							local bpWhitelist = Items.containers[backpackItem.name]?.whitelist
+							local bpBlacklist = Items.containers[backpackItem.name]?.blacklist
+							local bpCheckItem = toBackpack and fromData.name or toData.name
+
+							if (bpWhitelist and not bpWhitelist[bpCheckItem]) or (bpBlacklist and bpBlacklist[bpCheckItem]) then
+								return
+							end
+
+							Inventory.ContainerWeight(backpackItem, toBackpack and toWeight or fromWeight, playerInventory)
+						end
+
 						if fromOtherPlayer then
 							TriggerClientEvent('ox_inventory:itemNotify', fromInventory.id, { fromData, 'ui_removed', fromData.count })
 							TriggerClientEvent('ox_inventory:itemNotify', fromInventory.id, { toData, 'ui_added', toData.count })
@@ -1770,7 +2245,14 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 						fromInventory.weight = fromWeight
 						toInventory.weight = toWeight
-						toData, fromData = Inventory.SwapSlots(fromInventory, toInventory, data.fromSlot, data.toSlot) --[[@as table]]
+						toData, fromData = Inventory.SwapSlots(fromInventory, toInventory, data.fromSlot, data.toSlot)
+
+						if data.rotated ~= nil and toData then
+							toData.gridRotated = data.rotated
+						end
+						if data.targetRotated ~= nil and fromData then
+							fromData.gridRotated = data.targetRotated
+						end
 
 						if server.loglevel > 0 then
 							lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s" for %sx %s'):format(fromData.count, fromData.name, fromInventory.owner and fromInventory.label or fromInventory.id, toInventory.owner and toInventory.label or toInventory.id, toData.count, toData.name))
@@ -1780,16 +2262,22 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 					if not TriggerEventHooks('swapItems', hookPayload) then return end
 
 					toData, fromData = Inventory.SwapSlots(fromInventory, toInventory, data.fromSlot, data.toSlot)
+
+					if data.rotated ~= nil and toData then
+						toData.gridRotated = data.rotated
+					end
+					if data.targetRotated ~= nil and fromData then
+						fromData.gridRotated = data.targetRotated
+					end
 				end
 
 			elseif toData and toData.name == fromData.name and table.matches(toData.metadata, fromData.metadata) then
-				-- Stack items
 				toData.count += data.count
 				fromData.count -= data.count
 				local toSlotWeight = Inventory.SlotWeight(Items(toData.name), toData)
 				local totalWeight = toInventory.weight - toData.weight + toSlotWeight
 
-				if fromInventory.type == 'container' or sameInventory or totalWeight <= toInventory.maxWeight then
+				if fromInventory.type == 'container' or fromInventory.type == 'backpack' or sameInventory or totalWeight <= toInventory.maxWeight then
 					hookPayload.action = 'stack'
 
 					if not TriggerEventHooks('swapItems', hookPayload) then
@@ -1807,6 +2295,10 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 						if container then
 							Inventory.ContainerWeight(containerItem, toInventory.type == 'container' and toInventory.weight or fromInventory.weight, playerInventory)
+						end
+
+						if backpackItem then
+							Inventory.ContainerWeight(backpackItem, toInventory.type == 'backpack' and toInventory.weight or fromInventory.weight, playerInventory)
 						end
 
 						if fromOtherPlayer then
@@ -1827,13 +2319,57 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 					return false, 'cannot_carry'
 				end
 			elseif data.count <= fromData.count then
-				-- Move item to an empty slot
 				toData = table.clone(fromData)
 				toData.count = data.count
 				toData.slot = data.toSlot
 				toData.weight = Inventory.SlotWeight(Items(toData.name), toData)
 
-				if fromInventory.type == 'container' or sameInventory or (toInventory.weight + toData.weight <= toInventory.maxWeight) then
+				if data.toGridX ~= nil then
+					toData.gridX = math.floor(tonumber(data.toGridX) or 0)
+					toData.gridY = math.floor(tonumber(data.toGridY) or 0)
+					toData.gridRotated = data.rotated or false
+				end
+
+				if GridUtils.IsGridInventory(toInventory.type) and toData.gridX ~= nil then
+					local gridWidth = toInventory.gridWidth or shared.gridwidth or 12
+					local gridHeight = toInventory.gridHeight or shared.gridheight or 5
+					local itemData = Items(toData.name)
+					local w, h
+					if itemData and itemData.weapon and toData.metadata and toData.metadata.components then
+						w, h = GridUtils.ComputeWeaponSize(itemData, toData.metadata)
+					else
+						w = itemData and itemData.width or 1
+						h = itemData and itemData.height or 1
+					end
+					if toData.gridRotated then w, h = h, w end
+
+					local grid = GridUtils.BuildOccupancy(toInventory, sameInventory and data.fromSlot or nil)
+					if not GridUtils.CanPlace(grid, gridWidth, gridHeight, toData.gridX, toData.gridY, w, h) then
+						print(('[ox_inventory] grid_collision (move): item=%s from=%s to=%s gx=%d gy=%d w=%d h=%d gridW=%d gridH=%d sameInv=%s'):format(
+							toData.name, tostring(fromInventory.id), tostring(toInventory.id),
+							toData.gridX, toData.gridY, w, h, gridWidth, gridHeight, tostring(sameInventory)
+						))
+						for dy = 0, h - 1 do
+							for dx = 0, w - 1 do
+								local cy, cx = toData.gridY + dy, toData.gridX + dx
+								if grid[cy] and grid[cy][cx] then
+									local blockingItem = toInventory.items[grid[cy][cx]]
+									print(('[ox_inventory]   cell (%d,%d) occupied by slot %s (%s at gridX=%s gridY=%s)'):format(
+										cx, cy, tostring(grid[cy][cx]),
+										blockingItem and blockingItem.name or '?',
+										blockingItem and tostring(blockingItem.gridX) or '?',
+										blockingItem and tostring(blockingItem.gridY) or '?'
+									))
+								elseif not grid[cy] or grid[cy][cx] == nil then
+									print(('[ox_inventory]   cell (%d,%d) out of bounds'):format(cx, cy))
+								end
+							end
+						end
+						return false, 'grid_collision'
+					end
+				end
+
+				if fromInventory.type == 'container' or fromInventory.type == 'backpack' or sameInventory or (toInventory.weight + toData.weight <= toInventory.maxWeight) then
 					hookPayload.action = 'move'
 
 					if not TriggerEventHooks('swapItems', hookPayload) then return end
@@ -1857,6 +2393,21 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 						if container then
 							Inventory.ContainerWeight(containerItem, toContainer and toInventory.weight or fromInventory.weight, playerInventory)
+						end
+
+						if backpackItem then
+							local toBackpack = toInventory.type == 'backpack'
+
+							if toBackpack and backpackItem then
+								local bpWhitelist = Items.containers[backpackItem.name]?.whitelist
+								local bpBlacklist = Items.containers[backpackItem.name]?.blacklist
+
+								if (bpWhitelist and not bpWhitelist[fromData.name]) or (bpBlacklist and bpBlacklist[fromData.name]) then
+									return
+								end
+							end
+
+							Inventory.ContainerWeight(backpackItem, toBackpack and toInventory.weight or fromInventory.weight, playerInventory)
 						end
 
 						if fromOtherPlayer then
@@ -1891,12 +2442,26 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 						inventory = playerInventory.id
 					}
 				end
+
+				if toInventory.type == 'backpack' and backpackItem then
+					items[#items + 1] = {
+						item = backpackItem,
+						inventory = playerInventory.id
+					}
+				end
 			end
 
 			if toInventory.player and not toOtherPlayer then
 				if fromInventory.type == 'container' and containerItem then
 					items[#items + 1] = {
 						item = containerItem,
+						inventory = playerInventory.id
+					}
+				end
+
+				if fromInventory.type == 'backpack' and backpackItem then
+					items[#items + 1] = {
+						item = backpackItem,
 						inventory = playerInventory.id
 					}
 				end
@@ -1908,7 +2473,30 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 			if fromInventory.changed ~= nil then fromInventory.changed = true end
 			if toInventory.changed ~= nil then toInventory.changed = true end
 
+			if toInventory.type == 'backpack' then
+				items[#items + 1] = {
+					item = toInventory.items[data.toSlot] or { slot = data.toSlot },
+					inventory = toInventory.id
+				}
+			end
+			if fromInventory.type == 'backpack' then
+				items[#items + 1] = {
+					item = fromInventory.items[data.fromSlot] or { slot = data.fromSlot },
+					inventory = fromInventory.id
+				}
+			end
+
             CreateThread(function()
+                local removedFromTo, removedFromFrom
+                if toInventory.type == 'backpack' and toInventory.openedBy and toInventory.openedBy[source] then
+                    toInventory.openedBy[source] = nil
+                    removedFromTo = true
+                end
+                if fromInventory.type == 'backpack' and fromInventory.openedBy and fromInventory.openedBy[source] then
+                    fromInventory.openedBy[source] = nil
+                    removedFromFrom = true
+                end
+
                 if sameInventory then
                     fromInventory:syncSlotsWithClients({
                         {
@@ -1935,6 +2523,9 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
                         }
                     }, true)
                 end
+
+                if removedFromTo then toInventory.openedBy[source] = true end
+                if removedFromFrom then fromInventory.openedBy[source] = true end
             end)
 
 			local resp
@@ -1975,9 +2566,297 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				end
 			end
 
-			return containerItem and containerItem.weight or true, resp, weaponSlot
+			return containerItem and containerItem.weight or backpackItem and backpackItem.weight or true, resp, weaponSlot
 		end
 	end
+end)
+
+lib.callback.register('ox_inventory:sortInventory', function(source, data)
+	local inventoryId = data and data.inventoryId
+	local inv
+
+	if not inventoryId or inventoryId == tostring(source) then
+		inv = Inventories[source]
+	else
+		inv = Inventories[inventoryId]
+	end
+
+	if not inv then return false end
+
+	if inv.id ~= source and not inv.openedBy[source] then
+		return false
+	end
+
+	if inv.type == 'shop' or inv.type == 'crafting' then
+		return false
+	end
+
+	if inv.player and inv.id ~= source then
+		return false
+	end
+
+	local gridWidth = inv.gridWidth or GridUtils.GetDimensions(inv.type)
+	local _, gridHeightFromType = GridUtils.GetDimensions(inv.type)
+	local gridHeight = inv.gridHeight or gridHeightFromType
+
+	local allItems = {}
+
+	for slot, item in pairs(inv.items) do
+		if item and item.name then
+			allItems[#allItems + 1] = { slot = slot, item = item }
+		end
+	end
+
+	if #allItems == 0 then return false end
+
+	local merged = {}
+	local removedSlots = {}
+	local mergeUpdates = {}
+
+	local groups = {}
+	for _, entry in ipairs(allItems) do
+		local name = entry.item.name
+		if not groups[name] then groups[name] = {} end
+		groups[name][#groups[name] + 1] = entry
+	end
+
+	for name, group in pairs(groups) do
+		local itemData = Items(name)
+		local isStackable = itemData and itemData.stack
+
+		if isStackable and #group > 1 then
+			local metaGroups = {}
+
+			for _, entry in ipairs(group) do
+				local found = false
+				for _, mg in ipairs(metaGroups) do
+					if table.matches(mg[1].item.metadata, entry.item.metadata) then
+						mg[#mg + 1] = entry
+						found = true
+						break
+					end
+				end
+				if not found then
+					metaGroups[#metaGroups + 1] = { entry }
+				end
+			end
+
+			for _, mg in ipairs(metaGroups) do
+				local target = mg[1]
+				local totalCount = target.item.count or 1
+
+				for i = 2, #mg do
+					totalCount = totalCount + (mg[i].item.count or 1)
+					removedSlots[mg[i].slot] = true
+				end
+
+				if totalCount ~= (target.item.count or 1) then
+					mergeUpdates[target.slot] = totalCount
+				end
+
+				merged[#merged + 1] = target
+			end
+		else
+			for _, entry in ipairs(group) do
+				merged[#merged + 1] = entry
+			end
+		end
+	end
+
+	for _, entry in ipairs(merged) do
+		local itemData = Items(entry.item.name)
+		if itemData and itemData.weapon and entry.item.metadata and entry.item.metadata.components then
+			entry.width, entry.height = GridUtils.ComputeWeaponSize(itemData, entry.item.metadata)
+		else
+			entry.width = itemData and itemData.width or 1
+			entry.height = itemData and itemData.height or 1
+		end
+		entry.area = entry.width * entry.height
+	end
+
+	table.sort(merged, function(a, b)
+		if a.area ~= b.area then return a.area > b.area end
+		return a.item.name < b.item.name
+	end)
+
+	local grid = {}
+	for y = 0, gridHeight - 1 do
+		grid[y] = {}
+		for x = 0, gridWidth - 1 do
+			grid[y][x] = false
+		end
+	end
+
+	local placements = {}
+
+	for _, entry in ipairs(merged) do
+		local gx, gy, rotated = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, entry.width, entry.height)
+
+		if not gx then
+			return false
+		end
+
+		placements[#placements + 1] = {
+			slot = entry.slot,
+			item = entry.item,
+			gx = gx,
+			gy = gy,
+			rotated = rotated or false,
+		}
+
+		local w, h = entry.width, entry.height
+		if rotated then w, h = h, w end
+
+		for dy = 0, h - 1 do
+			for dx = 0, w - 1 do
+				local cx = gx + dx
+				local cy = gy + dy
+				if grid[cy] and grid[cy][cx] ~= nil then
+					grid[cy][cx] = entry.slot
+				end
+			end
+		end
+	end
+
+	local updateSlots = {}
+	local weightDelta = 0
+
+	for slot in pairs(removedSlots) do
+		local removedItem = inv.items[slot]
+		if removedItem then
+			weightDelta = weightDelta - (removedItem.weight or 0)
+
+			updateSlots[#updateSlots + 1] = {
+				item = { slot = slot },
+				inventory = inv.id,
+			}
+			inv.items[slot] = nil
+		end
+	end
+
+	for slot, newCount in pairs(mergeUpdates) do
+		local item = inv.items[slot]
+		if item then
+			local itemData = Items(item.name)
+			local oldWeight = item.weight or 0
+			local newWeight = Inventory.SlotWeight(itemData, { count = newCount, metadata = item.metadata })
+			weightDelta = weightDelta + (newWeight - oldWeight)
+
+			item.count = newCount
+			item.weight = newWeight
+		end
+	end
+
+	for _, p in ipairs(placements) do
+		p.item.gridX = p.gx
+		p.item.gridY = p.gy
+		p.item.gridRotated = p.rotated
+
+		updateSlots[#updateSlots + 1] = {
+			item = p.item,
+			inventory = inv.id,
+		}
+	end
+
+	if #updateSlots == 0 then return false end
+
+	if weightDelta ~= 0 then
+		inv.weight = (inv.weight or 0) + weightDelta
+	end
+
+	if inv.changed ~= nil then inv.changed = true end
+
+	inv:syncSlotsWithClients(updateSlots, true)
+
+	if server.syncInventory and inv.player then
+		server.syncInventory(inv)
+	end
+
+	return true
+end)
+
+lib.callback.register('ox_inventory:attachComponent', function(source, data)
+	if not data or not data.componentSlot or not data.weaponSlot then return false end
+
+	local inv = Inventory(source)
+	if not inv then return false end
+
+	local compRef = ('%s:%s'):format(inv.id, data.componentSlot)
+	local weapRef = ('%s:%s'):format(inv.id, data.weaponSlot)
+	if activeSlots[compRef] or activeSlots[weapRef] then return false end
+	activeSlots[compRef] = true
+	activeSlots[weapRef] = true
+	local _ <close> = defer(function()
+		activeSlots[compRef] = nil
+		activeSlots[weapRef] = nil
+	end)
+
+	local componentItem = inv.items[data.componentSlot]
+	local weaponItem = inv.items[data.weaponSlot]
+
+	if not componentItem or not weaponItem then return false end
+
+	local componentData = Items(componentItem.name)
+	local weaponData = Items(weaponItem.name)
+
+	if not componentData or not componentData.component then return false end
+	if not weaponData or not weaponData.weapon then return false end
+
+	if componentData.compatibleWeapons then
+		local compatible = false
+		for _, weaponName in ipairs(componentData.compatibleWeapons) do
+			if weaponName == weaponItem.name then compatible = true; break end
+		end
+		if not compatible then return false end
+	end
+
+	if not weaponItem.metadata then weaponItem.metadata = {} end
+	if not weaponItem.metadata.components then weaponItem.metadata.components = {} end
+
+	local compType = componentData.type
+	if compType then
+		for _, existingComp in ipairs(weaponItem.metadata.components) do
+			local existingData = Items(existingComp)
+			if existingData and existingData.type == compType then
+				return false
+			end
+		end
+	end
+
+	local testComponents = {}
+	for _, c in ipairs(weaponItem.metadata.components) do
+		testComponents[#testComponents + 1] = c
+	end
+	testComponents[#testComponents + 1] = componentItem.name
+	local newW, newH = GridUtils.ComputeWeaponSize(weaponData, { components = testComponents })
+
+	if GridUtils.IsGridInventory(inv.type) and weaponItem.gridX ~= nil then
+		local gridWidth = inv.gridWidth or shared.gridwidth or 12
+		local gridHeight = inv.gridHeight or shared.gridheight or 5
+		local grid = GridUtils.BuildOccupancy(inv, data.weaponSlot)
+		local w, h = newW, newH
+		if weaponItem.gridRotated then w, h = h, w end
+		if not GridUtils.CanPlace(grid, gridWidth, gridHeight, weaponItem.gridX, weaponItem.gridY or 0, w, h) then
+			return false
+		end
+	end
+
+	local oldWeaponWeight = weaponItem.weight or 0
+	if not Inventory.RemoveItem(inv, componentItem.name, 1, nil, data.componentSlot) then return false end
+
+	table.insert(weaponItem.metadata.components, componentItem.name)
+	weaponItem.weight = Inventory.SlotWeight(weaponData, weaponItem)
+
+	inv.weight = inv.weight + (weaponItem.weight - oldWeaponWeight)
+
+	inv.changed = true
+	inv:syncSlotsWithClients({
+		{ item = weaponItem }
+	}, true)
+
+	if server.syncInventory then server.syncInventory(inv) end
+
+	return true
 end)
 
 function Inventory.Confiscate(source)
@@ -2020,7 +2899,7 @@ function Inventory.Return(source)
             if item then
                 local weight = Inventory.SlotWeight(item, data)
                 totalWeight = totalWeight + weight
-                inventory[data.slot] = {name = data.name, label = item.label, weight = weight, slot = data.slot, count = data.count, description = item.description, metadata = data.metadata, stack = item.stack, close = item.close}
+                inventory[data.slot] = {name = data.name, label = item.label, weight = weight, slot = data.slot, count = data.count, description = item.description, metadata = data.metadata, stack = item.stack, close = item.close, gridX = data.gridX, gridY = data.gridY, gridRotated = data.gridRotated}
             end
         end
     end
@@ -2039,7 +2918,7 @@ exports('ReturnInventory', Inventory.Return)
 ---@param inv inventory
 ---@param keep? string | string[] an item or list of items to ignore while clearing items
 function Inventory.Clear(inv, keep)
-	inv = Inventory(inv) --[[@as OxInventory]]
+	inv = Inventory(inv)
 
 	if not inv or not next(inv.items) then return end
 
@@ -2126,6 +3005,16 @@ function Inventory.GetEmptySlot(inv)
 
 	if not inventory then return end
 
+	if GridUtils.IsGridInventory(inventory.type) then
+		local maxSlot = 0
+		for k in pairs(inventory.items) do
+			if type(k) == 'number' and k > maxSlot then
+				maxSlot = k
+			end
+		end
+		return maxSlot + 1
+	end
+
 	local items = inventory.items
 
 	for i = 1, inventory.slots do
@@ -2142,12 +3031,40 @@ exports('GetEmptySlot', Inventory.GetEmptySlot)
 ---@param metadata any
 function Inventory.GetSlotForItem(inv, itemName, metadata)
 	local inventory = Inventory(inv)
-	local item = Items(itemName) --[[@as OxServerItem?]]
+	local item = Items(itemName)
 
 	if not inventory or not item then return end
 
 	metadata = assertMetadata(metadata)
 	local items = inventory.items
+
+	if GridUtils.IsGridInventory(inventory.type) then
+		for k, slotData in pairs(items) do
+			if item.stack and slotData and slotData.name == item.name and table.matches(slotData.metadata, metadata) then
+				return k
+			end
+		end
+
+		local gridWidth = inventory.gridWidth or shared.gridwidth or 10
+		local gridHeight = inventory.gridHeight or shared.gridheight or 7
+		local grid = GridUtils.BuildOccupancy(inventory)
+		local w = item.width or 1
+		local h = item.height or 1
+		local gx = GridUtils.FindFirstFit(grid, gridWidth, gridHeight, w, h)
+
+		if gx then
+			local maxSlot = 0
+			for k in pairs(items) do
+				if type(k) == 'number' and k > maxSlot then
+					maxSlot = k
+				end
+			end
+			return maxSlot + 1
+		end
+
+		return nil
+	end
+
 	local emptySlot
 
 	for i = 1, inventory.slots do
@@ -2172,7 +3089,7 @@ exports('GetSlotForItem', Inventory.GetSlotForItem)
 ---@return SlotWithItem?
 function Inventory.GetSlotWithItem(inv, itemName, metadata, strict)
 	local inventory = Inventory(inv)
-	local item = Items(itemName) --[[@as OxServerItem?]]
+	local item = Items(itemName)
 
 	if not inventory or not item then return end
 
@@ -2208,7 +3125,7 @@ exports('GetSlotIdWithItem', Inventory.GetSlotIdWithItem)
 ---@return SlotWithItem[]?
 function Inventory.GetSlotsWithItem(inv, itemName, metadata, strict)
 	local inventory = Inventory(inv)
-	local item = Items(itemName) --[[@as OxServerItem?]]
+	local item = Items(itemName)
 
 	if not inventory or not item then return end
 
@@ -2258,7 +3175,7 @@ exports('GetSlotIdsWithItem', Inventory.GetSlotIdsWithItem)
 ---@return number
 function Inventory.GetItemCount(inv, itemName, metadata, strict)
 	local inventory = Inventory(inv)
-	local item = Items(itemName) --[[@as OxServerItem?]]
+	local item = Items(itemName)
 
 	if not inventory or not item then return 0 end
 
@@ -2295,7 +3212,10 @@ local function prepareInventorySave(inv, buffer, time)
                 name = v.name,
                 count = v.count,
                 slot = k,
-                metadata = next(v.metadata) and v.metadata or nil
+                metadata = next(v.metadata) and v.metadata or nil,
+                gridX = v.gridX,
+                gridY = v.gridY,
+                gridRotated = v.gridRotated,
             }
         end
 	end
@@ -2518,7 +3438,14 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 					if v == value.component then
 						if not Inventory.AddItem(inventory, value.component, 1) then return end
 
+						local oldWeight = item.weight or 0
 						table.remove(item.metadata.components, k)
+						local weaponData = Items(item.name)
+						if weaponData then
+							item.weight = Inventory.SlotWeight(weaponData, item)
+							inventory.weight = inventory.weight + (item.weight - oldWeight)
+						end
+
 						inventory:syncSlotsWithPlayer({
 							{ item = item }
 						}, inventory.weight)
@@ -2561,6 +3488,45 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 					weapon.weight = Inventory.SlotWeight(item, weapon)
 				elseif type == 'string' then
 					local component = inventory.items[tonumber(value)]
+					if not component then return false end
+
+					local componentData = Items(component.name)
+					if not componentData or not componentData.component then return false end
+
+					if componentData.compatibleWeapons then
+						local compatible = false
+						for _, weaponName in ipairs(componentData.compatibleWeapons) do
+							if weaponName == weapon.name then compatible = true; break end
+						end
+						if not compatible then return false end
+					end
+
+					if componentData.type and weapon.metadata and weapon.metadata.components then
+						for _, existingComp in ipairs(weapon.metadata.components) do
+							local existingData = Items(existingComp)
+							if existingData and existingData.type == componentData.type then
+								return false
+							end
+						end
+					end
+
+					if GridUtils.IsGridInventory(inventory.type) and weapon.gridX ~= nil then
+						local testComponents = {}
+						if weapon.metadata.components then
+							for _, c in ipairs(weapon.metadata.components) do
+								testComponents[#testComponents + 1] = c
+							end
+						end
+						testComponents[#testComponents + 1] = component.name
+						local newW, newH = GridUtils.ComputeWeaponSize(item, { components = testComponents })
+						if weapon.gridRotated then newW, newH = newH, newW end
+						local gridWidth = inventory.gridWidth or shared.gridwidth or 12
+						local gridHeight = inventory.gridHeight or shared.gridheight or 5
+						local grid = GridUtils.BuildOccupancy(inventory, slot)
+						if not GridUtils.CanPlace(grid, gridWidth, gridHeight, weapon.gridX, weapon.gridY or 0, newW, newH) then
+							return false
+						end
+					end
 
 					if not Inventory.RemoveItem(inventory, component.name, 1) then return false end
 
@@ -2621,7 +3587,6 @@ lib.callback.register('ox_inventory:removeAmmoFromWeapon', function(source, slot
 
 	if not item or not item.ammoname then return end
 	local specialAmmo = slotData.metadata.specialAmmo and { type = slotData.metadata.specialAmmo } or nil
-
 
 	if Inventory.AddItem(inventory, item.ammoname, slotData.metadata.ammo, specialAmmo) then
 		slotData.metadata.ammo = 0

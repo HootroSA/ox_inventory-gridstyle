@@ -14,7 +14,6 @@ export const canPurchaseItem = (item: Slot, inventory: { type: Inventory['type']
 
   const leftInventory = store.getState().inventory.leftInventory;
 
-  // Shop requires groups but player has none
   if (!leftInventory.groups) return false;
 
   const reqGroups = Object.keys(inventory.groups);
@@ -78,6 +77,40 @@ export const canCraftItem = (item: Slot, inventoryType: string) => {
   return remainingItems.length === 0;
 };
 
+export const canCraftItemWithReservations = (
+  item: Slot,
+  inventoryType: string,
+  reserved: Record<string, number>
+): boolean => {
+  if (!isSlotWithItem(item) || inventoryType !== 'crafting') return true;
+  if (!item.ingredients) return true;
+
+  const leftInventory = store.getState().inventory.leftInventory;
+
+  for (const [ingredientName, needed] of Object.entries(item.ingredients)) {
+    if (needed < 1) continue;
+
+    const alreadyReserved = reserved[ingredientName] || 0;
+    const totalNeeded = alreadyReserved + needed;
+
+    let available = 0;
+    for (const slot of leftInventory.items) {
+      if (isSlotWithItem(slot) && slot.name === ingredientName) {
+        available += slot.count;
+      }
+    }
+
+    if (available < totalNeeded) return false;
+  }
+
+  for (const [ingredientName, needed] of Object.entries(item.ingredients)) {
+    if (needed < 1) continue;
+    reserved[ingredientName] = (reserved[ingredientName] || 0) + needed;
+  }
+
+  return true;
+};
+
 export const isSlotWithItem = (slot: Slot, strict: boolean = false): slot is SlotWithItem =>
   (slot.name !== undefined && slot.weight !== undefined) ||
   (strict && slot.name !== undefined && slot.count !== undefined && slot.weight !== undefined);
@@ -97,16 +130,22 @@ export const getTargetInventory = (
   state: State,
   sourceType: Inventory['type'],
   targetType?: Inventory['type']
-): { sourceInventory: Inventory; targetInventory: Inventory } => ({
-  sourceInventory: sourceType === InventoryType.PLAYER ? state.leftInventory : state.rightInventory,
-  targetInventory: targetType
-    ? targetType === InventoryType.PLAYER
-      ? state.leftInventory
-      : state.rightInventory
-    : sourceType === InventoryType.PLAYER
-    ? state.rightInventory
-    : state.leftInventory,
-});
+): { sourceInventory: Inventory; targetInventory: Inventory } => {
+  const resolve = (type: Inventory['type']) => {
+    if (type === InventoryType.PLAYER) return state.leftInventory;
+    if (type === InventoryType.BACKPACK) return state.backpackInventory;
+    return state.rightInventory;
+  };
+
+  return {
+    sourceInventory: resolve(sourceType),
+    targetInventory: targetType
+      ? resolve(targetType)
+      : sourceType === InventoryType.PLAYER
+        ? state.rightInventory
+        : state.leftInventory,
+  };
+};
 
 export const itemDurability = (metadata: any, curTime: number) => {
   // sorry dunak

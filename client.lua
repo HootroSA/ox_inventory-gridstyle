@@ -82,8 +82,28 @@ local defaultInventory = {
 	slots = shared.dropslots,
 	weight = 0,
 	maxWeight = shared.dropweight,
-	items = {}
+	items = {},
+	gridWidth = 10,
+	gridHeight = 7,
 }
+
+local searchableTypes = shared.searchable and {
+	stash = true,
+	trunk = true,
+	glovebox = true,
+	drop = true,
+	newdrop = true,
+	dumpster = true,
+	container = true,
+	policeevidence = true,
+	player = true,
+} or {}
+
+local searchConfig = {
+	itemDuration = 1500,
+}
+
+local skipSearchForDrop = nil
 
 local currentInventory = defaultInventory
 
@@ -227,7 +247,7 @@ function client.openInventory(inv, data)
             if not data then
                 local input = lib.inputDialog(locale('police_evidence'), {
                     { label = locale('locker_number'), type = 'number', required = true, icon = 'calculator' }
-                }) --[[@as number[]? ]]
+                })
 
                 if not input then return end
 
@@ -253,7 +273,6 @@ function client.openInventory(inv, data)
         if invOpen then return client.closeInventory() end
     end
 
-
     if not cache.vehicle then
         if inv == 'player' then
             Utils.PlayAnim(0, 'mp_common', 'givetake1_a', 8.0, 1.0, 2000, 50, 0.0, 0, 0, 0)
@@ -274,6 +293,52 @@ function client.openInventory(inv, data)
     currentInventory = right or defaultInventory
     left.items = PlayerData.inventory
     left.groups = PlayerData.groups
+
+    local isSearchable = searchableTypes[currentInventory.type] or false
+    local unsearchedCount = 0
+
+    if isSearchable and currentInventory.items then
+        if skipSearchForDrop and skipSearchForDrop == currentInventory.id then
+            -- Player created this drop, auto-search all items and save KVP
+            skipSearchForDrop = nil
+            local allSlots = {}
+            for slot, item in pairs(currentInventory.items) do
+                if item and item.name then
+                    item.searched = true
+                    allSlots[#allSlots + 1] = slot
+                end
+            end
+            local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+            if #allSlots > 0 then
+                SetResourceKvp(kvpKey, json.encode(allSlots))
+            end
+        else
+            local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+            local stored = GetResourceKvpString(kvpKey)
+            local searchedSet = {}
+
+            if stored then
+                local decoded = json.decode(stored)
+                if decoded then
+                    for _, s in ipairs(decoded) do searchedSet[s] = true end
+                end
+            end
+
+            for slot, item in pairs(currentInventory.items) do
+                if item and item.name then
+                    if searchedSet[slot] then
+                        item.searched = true
+                    else
+                        item.searched = false
+                        unsearchedCount = unsearchedCount + 1
+                    end
+                end
+            end
+        end
+    end
+
+    currentInventory.searchable = isSearchable
+    currentInventory.unsearchedCount = unsearchedCount
 
     SendNUIMessage({
         action = 'setupInventory',
@@ -333,6 +398,51 @@ RegisterNetEvent('ox_inventory:forceOpenInventory', function(left, right)
 	left.items = PlayerData.inventory
 	left.groups = PlayerData.groups
 
+	local isSearchable = searchableTypes[currentInventory.type] or false
+	local unsearchedCount = 0
+
+	if isSearchable and currentInventory.items then
+		if skipSearchForDrop and skipSearchForDrop == currentInventory.id then
+			skipSearchForDrop = nil
+			local allSlots = {}
+			for slot, item in pairs(currentInventory.items) do
+				if item and item.name then
+					item.searched = true
+					allSlots[#allSlots + 1] = slot
+				end
+			end
+			local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+			if #allSlots > 0 then
+				SetResourceKvp(kvpKey, json.encode(allSlots))
+			end
+		else
+			local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+			local stored = GetResourceKvpString(kvpKey)
+			local searchedSet = {}
+
+			if stored then
+				local decoded = json.decode(stored)
+				if decoded then
+					for _, s in ipairs(decoded) do searchedSet[s] = true end
+				end
+			end
+
+			for slot, item in pairs(currentInventory.items) do
+				if item and item.name then
+					if searchedSet[slot] then
+						item.searched = true
+					else
+						item.searched = false
+						unsearchedCount = unsearchedCount + 1
+					end
+				end
+			end
+		end
+	end
+
+	currentInventory.searchable = isSearchable
+	currentInventory.unsearchedCount = unsearchedCount
+
 	SendNUIMessage({
 		action = 'setupInventory',
 		data = {
@@ -385,7 +495,7 @@ lib.callback.register('ox_inventory:usingItem', function(data, noAnim)
 			canCancel = item.cancel,
 			disable = item.disable,
 			anim = item.anim or item.scenario,
-			prop = item.prop --[[@as ProgressProps]]
+			prop = item.prop
 		})) and not PlayerData.dead
 
 		if success then
@@ -481,9 +591,9 @@ local function useSlot(slot, noAnim)
 			return lib.notify({ id = 'weapon_hand_required', type = 'error', description = locale('weapon_hand_required') })
 		end
 
-		local durability = item.metadata.durability --[[@as number?]]
-		local consume = data.consume --[[@as number?]]
-		local label = item.metadata.label or item.label --[[@as string]]
+		local durability = item.metadata.durability
+		local consume = data.consume
+		local label = item.metadata.label or item.label
 
 		-- Naive durability check to get an early exit
 		-- People often don't call the 'useItem' export and then complain about "broken" items being usable
@@ -499,13 +609,17 @@ local function useSlot(slot, noAnim)
 		data.slot = slot
 
 		if item.metadata.container then
+			if item.metadata.isBackpack then
+				return client.openBackpack(item.slot)
+			end
+
 			return client.openInventory('container', item.slot)
 		elseif data.client then
 			if invOpen and data.close then client.closeInventory() end
 
 			if data.export then
 				return data.export(data, {name = item.name, slot = item.slot, metadata = item.metadata})
-			elseif data.client.event then -- re-add it, so I don't need to deal with morons taking screenshots of errors when using trigger event
+			elseif data.client.event then
 				return TriggerEvent(data.client.event, data, {name = item.name, slot = item.slot, metadata = item.metadata})
 			end
 		end
@@ -649,7 +763,6 @@ local function useSlot(slot, noAnim)
 				local componentType = data.type
 				local weaponComponents = PlayerData.inventory[currentWeapon.slot].metadata.components
 
-				-- Checks if the weapon already has the same component type attached
 				for componentIndex = 1, #weaponComponents do
 					if componentType == Items[weaponComponents[componentIndex]].type then
 						return lib.notify({ id = 'component_slot_occupied', type = 'error', description = locale('component_slot_occupied', componentType) })
@@ -868,12 +981,44 @@ local function registerCommands()
 			defaultKey = tostring(i),
 			onPressed = function()
 				if invOpen or EnableWeaponWheel or not invHotkeys or IsNuiFocused() then return end
-				useSlot(i)
+				SendNUIMessage({ action = 'useHotbar', data = i })
 			end
 		})
 	end
 
 	registerCommands = nil
+end
+
+---@type number?
+local currentBackpackSlot
+
+function client.openBackpack(slot)
+	if not invOpen then return end
+
+	if currentBackpackSlot == slot then
+		return client.closeBackpack()
+	end
+
+	local backpackData = lib.callback.await('ox_inventory:openBackpack', false, slot)
+
+	if not backpackData then return end
+
+	currentBackpackSlot = slot
+
+	SendNUIMessage({
+		action = 'setupBackpack',
+		data = {
+			backpackInventory = backpackData
+		}
+	})
+end
+
+function client.closeBackpack()
+	if currentBackpackSlot then
+		TriggerServerEvent('ox_inventory:closeBackpack')
+		currentBackpackSlot = nil
+		SendNUIMessage({ action = 'closeBackpack' })
+	end
 end
 
 function client.closeInventory(server)
@@ -883,13 +1028,16 @@ function client.closeInventory(server)
 
 	if invOpen then
 		invOpen = nil
+		craftingActive = false
+		ClearPedTasks(cache.ped)
+		client.closeBackpack()
 		SetNuiFocus(false, false)
 		SetNuiFocusKeepInput(false)
 		Utils.blurOut()
 		closeTrunk()
 		SendNUIMessage({ action = 'closeInventory' })
 		SetInterval(client.interval, 200)
-		Wait(200)
+		Wait(0)
 
 		if invOpen ~= nil then return end
 
@@ -1019,7 +1167,6 @@ RegisterNetEvent('ox_inventory:inventoryConfiscated', function(message)
 	updateInventory(items, 0)
 end)
 
-
 ---@param point CPoint
 local function nearbyDrop(point)
 	if not point.instance or point.instance == currentInstance then
@@ -1034,7 +1181,6 @@ local function onEnterDrop(point)
 	if not point.instance or point.instance == currentInstance and not point.entity then
 		local model = point.model or client.dropmodel
 
-        -- Prevent breaking inventory on invalid point.model instead use default client.dropmodel
         if not IsModelValid(model) and not IsModelInCdimage(model) then
             model = client.dropmodel
         end
@@ -1090,6 +1236,8 @@ RegisterNetEvent('ox_inventory:createDrop', function(dropId, data, owner, slot)
 			currentWeapon = Weapon.Disarm(currentWeapon)
 		end
 
+		skipSearchForDrop = dropId
+
 		if invOpen and #(GetEntityCoords(playerPed) - data.coords) <= 1 then
 			if not cache.vehicle then
 				client.openInventory('drop', dropId)
@@ -1136,7 +1284,6 @@ local function setStateBagHandler(stateId)
 		currentInstance = value
 
 		if client.drops then
-			-- Iterate over known drops and remove any points in a different instance (ignoring no instance)
 			for dropId, point in pairs(client.drops) do
 				if point.instance then
 					if point.instance ~= value then
@@ -1147,7 +1294,6 @@ local function setStateBagHandler(stateId)
 
 						point:remove()
 					else
-						-- Recreate the drop using data from the old point
 						createDrop(dropId, point)
 					end
 				end
@@ -1209,7 +1355,7 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 
 	local ItemData = table.create(0, #Items)
 
-	for _, v in pairs(Items --[[@as table<string, OxClientItem>]]) do
+	for _, v in pairs(Items) do
 		local buttons = v.buttons and {} or nil
 
 		if buttons then
@@ -1226,7 +1372,14 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			description = v.description,
 			buttons = buttons,
 			ammoName = v.ammoname,
-			image = v.client?.image
+			image = v.client?.image,
+			width = v.width or 1,
+			height = v.height or 1,
+			weapon = v.weapon or nil,
+			component = v.component or nil,
+			type = v.type or nil,
+			compatibleWeapons = v.compatibleWeapons or nil,
+			sizeModifier = v.sizeModifier or nil,
 		}
 	end
 
@@ -1321,6 +1474,8 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 
 	while not client.uiLoaded do Wait(50) end
 
+	local weaponsData = lib.load('data.weapons') or {}
+
 	SendNUIMessage({
 		action = 'init',
 		data = {
@@ -1331,8 +1486,11 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 				slots = shared.playerslots,
 				items = PlayerData.inventory,
 				maxWeight = shared.playerweight,
+				gridWidth = shared.gridwidth,
+				gridHeight = shared.gridheight,
 			},
-			imagepath = client.imagepath
+			imagepath = client.imagepath,
+			componentSizeModifiers = weaponsData.ComponentSizeModifiers or {},
 		}
 	})
 
@@ -1659,7 +1817,7 @@ RegisterNUICallback('removeAmmo', function(slot, cb)
 end)
 
 RegisterNUICallback('useItem', function(slot, cb)
-	useSlot(slot --[[@as number]])
+	useSlot(slot)
 	cb(1)
 end)
 
@@ -1770,6 +1928,11 @@ RegisterNUICallback('exit', function(_, cb)
 	cb(1)
 end)
 
+RegisterNUICallback('closeBackpack', function(_, cb)
+	client.closeBackpack()
+	cb(1)
+end)
+
 lib.callback.register('ox_inventory:startCrafting', function(id, recipe)
 	recipe = CraftingBenches[id].items[recipe]
 
@@ -1848,6 +2011,28 @@ RegisterNUICallback('swapItems', function(data, cb)
 		if response then
 			updateInventory(response.items, response.weight)
 		end
+
+		-- Auto-mark items as searched when player places them in a searchable inventory
+		if data.toType ~= 'newdrop' and searchableTypes[data.toType] and currentInventory and data.toSlot then
+			local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+			local stored = GetResourceKvpString(kvpKey)
+			local slots = {}
+
+			if stored then
+				local decoded = json.decode(stored)
+				if decoded then slots = decoded end
+			end
+
+			local found = false
+			for _, s in ipairs(slots) do
+				if s == data.toSlot then found = true break end
+			end
+
+			if not found then
+				slots[#slots + 1] = data.toSlot
+				SetResourceKvp(kvpKey, json.encode(slots))
+			end
+		end
 	elseif response then
 		if type(response) == 'table' then
 			SendNUIMessage({ action = 'refreshSlots', data = { items = response } })
@@ -1857,17 +2042,102 @@ RegisterNUICallback('swapItems', function(data, cb)
 	end
 end)
 
+RegisterNUICallback('sortInventory', function(data, cb)
+	if not invOpen or invBusy then return cb(false) end
+	local success = lib.callback.await('ox_inventory:sortInventory', false, data)
+	cb(success or false)
+end)
+
+RegisterNUICallback('startItemSearch', function(data, cb)
+	if not invOpen then return cb(false) end
+
+	local inv = currentInventory
+	if not inv or not searchableTypes[inv.type] then return cb(false) end
+
+	local slot = data.slot
+	if not slot then return cb(false) end
+
+	cb({ duration = searchConfig.itemDuration })
+end)
+
+RegisterNUICallback('itemSearchComplete', function(data, cb)
+	if not currentInventory then return cb(false) end
+
+	local slot = data.slot
+	if not slot then return cb(false) end
+
+	local kvpKey = ('ox_inv:s:%s'):format(currentInventory.id)
+	local stored = GetResourceKvpString(kvpKey)
+	local searchedSlots = {}
+
+	if stored then
+		local decoded = json.decode(stored)
+		if decoded then
+			for _, s in ipairs(decoded) do searchedSlots[#searchedSlots + 1] = s end
+		end
+	end
+
+	local alreadySearched = false
+	for _, s in ipairs(searchedSlots) do
+		if s == slot then alreadySearched = true break end
+	end
+
+	if not alreadySearched then
+		searchedSlots[#searchedSlots + 1] = slot
+	end
+
+	SetResourceKvp(kvpKey, json.encode(searchedSlots))
+
+	cb(true)
+end)
+
+RegisterNUICallback('attachComponent', function(data, cb)
+	if not invOpen or invBusy then return cb(false) end
+	local success = lib.callback.await('ox_inventory:attachComponent', false, data)
+
+	if success and currentWeapon and data.weaponSlot == currentWeapon.slot then
+		local itemSlot = PlayerData.inventory[currentWeapon.slot]
+		if itemSlot and Items[data.componentName] then
+			for _, component in pairs(Items[data.componentName].client.component) do
+				if DoesWeaponTakeWeaponComponent(currentWeapon.hash, component) then
+					GiveWeaponComponentToPed(playerPed, currentWeapon.hash, component)
+					TriggerEvent('ox_inventory:updateWeaponComponent', 'added', component, data.componentName)
+					break
+				end
+			end
+		end
+	end
+
+	cb(success or false)
+end)
+
 RegisterNUICallback('buyItem', function(data, cb)
-	---@type boolean, false | { [1]: number, [2]: SlotWithItem, [3]: SlotWithItem | false, [4]: number}, NotifyProps
+	---@type boolean, false | { [1]: number, [2]: SlotWithItem, [3]: SlotWithItem | false, [4]: number, [5]: string?, [6]: SlotWithItem?}, NotifyProps
 	local response, data, message = lib.callback.await('ox_inventory:buyItem', 100, data)
 
-	if data then
+	if data and data[2] then
+		local targetInvId = data[5] or cache.serverId
+
 		updateInventory({
 			{
 				item = data[2],
-				inventory = cache.serverId
+				inventory = targetInvId
 			}
 		}, data[4])
+
+		if data[6] then
+			SendNUIMessage({
+				action = 'refreshSlots',
+				data = {
+					items = {
+						{
+							item = data[6],
+							inventory = 'player'
+						}
+					}
+				}
+			})
+		end
 
 		if data[3] then
 			SendNUIMessage({
@@ -1897,7 +2167,7 @@ RegisterNUICallback('craftItem', function(data, cb)
 	local id, index = currentInventory.id, currentInventory.index
 
 	for i = 1, data.count do
-		local success, response = lib.callback.await('ox_inventory:craftItem', 200, id, index, data.fromSlot, data.toSlot)
+		local success, response = lib.callback.await('ox_inventory:craftItem', 200, id, index, data.fromSlot, data.toSlot, data.toGridX, data.toGridY, data.rotated, data.toType)
 
 		if not success then
 			if response then lib.notify({ type = 'error', description = locale(response or 'cannot_perform') }) end
@@ -1910,6 +2180,56 @@ RegisterNUICallback('craftItem', function(data, cb)
 	end
 end)
 
+local craftingActive = false
+
+RegisterNUICallback('startCraftQueueItem', function(data, cb)
+	if not currentInventory then return cb(false) end
+
+	local id, index = currentInventory.id, currentInventory.index
+	local bench = CraftingBenches[id]
+	if not bench then return cb(false) end
+
+	local recipe = bench.items[data.fromSlot]
+	if not recipe then return cb(false) end
+
+	local animDict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@'
+	lib.requestAnimDict(animDict)
+	TaskPlayAnim(cache.ped, animDict, 'machinic_loop_mechandplayer', 8.0, -8.0, -1, 1, 0, false, false, false)
+	RemoveAnimDict(animDict)
+
+	local crafting = true
+	craftingActive = true
+	CreateThread(function()
+		while crafting and craftingActive do
+			DisableControlAction(0, 21, true)
+			DisableControlAction(0, 24, true)
+			DisableControlAction(0, 25, true)
+			Wait(0)
+		end
+	end)
+
+	local result = lib.callback.await('ox_inventory:startCraftQueueItem', false, id, index, data.fromSlot)
+
+	crafting = false
+	ClearPedTasks(cache.ped)
+
+	cb(result or false)
+end)
+
+RegisterNUICallback('collectCraftItem', function(data, cb)
+	local success = lib.callback.await('ox_inventory:collectCraftItem', 200,
+		data.pendingCraftId, data.toSlot, data.toGridX, data.toGridY, data.rotated, data.toType)
+
+	cb(success or false)
+end)
+
+RegisterNUICallback('batchCollectCraftItems', function(data, cb)
+	local success = lib.callback.await('ox_inventory:batchCollectCraftItems', 200,
+		data.pendingCraftIds, data.toSlot, data.toGridX, data.toGridY, data.rotated, data.toType)
+
+	cb(success or false)
+end)
+
 lib.callback.register('ox_inventory:getVehicleData', function(netid)
 	local entity = NetworkGetEntityFromNetworkId(netid)
 
@@ -1917,3 +2237,4 @@ lib.callback.register('ox_inventory:getVehicleData', function(netid)
 		return GetEntityModel(entity), GetVehicleClass(entity)
 	end
 end)
+

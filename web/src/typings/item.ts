@@ -9,4 +9,11 @@ export type ItemData = {
   buttons?: string[];
   ammoName?: string;
   image?: string;
+  width?: number;
+  height?: number;
+  weapon?: boolean;
+  component?: boolean;
+  type?: string;
+  compatibleWeapons?: string[];
+  sizeModifier?: [number, number];
 };

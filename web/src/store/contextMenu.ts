@@ -7,11 +7,13 @@ interface ContextMenuState {
     y: number;
   } | null;
   item: SlotWithItem | null;
+  splitAmount: number | null;
 }
 
 const initialState: ContextMenuState = {
   coords: null,
   item: null,
+  splitAmount: null,
 };
 
 export const contextMenuSlice = createSlice({
@@ -21,13 +23,22 @@ export const contextMenuSlice = createSlice({
     openContextMenu(state, action: PayloadAction<{ item: SlotWithItem; coords: { x: number; y: number } }>) {
       state.coords = action.payload.coords;
       state.item = action.payload.item;
+      state.splitAmount = action.payload.item.count;
     },
     closeContextMenu(state) {
       state.coords = null;
     },
+    setSplitAmount(state, action: PayloadAction<number>) {
+      state.splitAmount = action.payload;
+    },
+    clearSplit(state) {
+      state.coords = null;
+      state.item = null;
+      state.splitAmount = null;
+    },
   },
 });
 
-export const { openContextMenu, closeContextMenu } = contextMenuSlice.actions;
+export const { openContextMenu, closeContextMenu, setSplitAmount, clearSplit } = contextMenuSlice.actions;
 
 export default contextMenuSlice.reducer;

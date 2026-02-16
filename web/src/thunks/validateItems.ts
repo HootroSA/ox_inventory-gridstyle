@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { setContainerWeight } from '../store/inventory';
+import { setContainerWeight, setBackpackWeight } from '../store/inventory';
 import { fetchNui } from '../utils/fetchNui';
 
 export const validateMove = createAsyncThunk(
@@ -11,6 +11,10 @@ export const validateMove = createAsyncThunk(
       toSlot: number;
       toType: string;
       count: number;
+      toGridX?: number;
+      toGridY?: number;
+      rotated?: boolean;
+      targetRotated?: boolean;
     },
     { rejectWithValue, dispatch }
   ) => {
@@ -19,7 +23,13 @@ export const validateMove = createAsyncThunk(
 
       if (response === false) return rejectWithValue(response);
 
-      if (typeof response === 'number') dispatch(setContainerWeight(response));
+      if (typeof response === 'number') {
+        if (data.fromType === 'backpack' || data.toType === 'backpack') {
+          dispatch(setBackpackWeight(response));
+        } else {
+          dispatch(setContainerWeight(response));
+        }
+      }
     } catch (error) {
       return rejectWithValue(false);
     }

@@ -50,6 +50,8 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
                 slot: item.slot,
               },
               image: item?.name && `url(${getItemUrl(item) || 'none'}`,
+              width: Items[item.name]?.width ?? 1,
+              height: Items[item.name]?.height ?? 1,
             }
           : null,
       canDrag,

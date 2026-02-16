@@ -1,6 +1,7 @@
 import { store } from '../store';
 import { DragSource, DropTarget } from '../typings';
 import { isSlotWithItem } from '../helpers';
+import { isGridInventory } from '../helpers/gridUtils';
 import { Items } from '../store/items';
 import { craftItem } from '../thunks/craftItem';
 
@@ -20,25 +21,26 @@ export const onCraft = (source: DragSource, target: DropTarget) => {
 
   if (sourceData === undefined) return console.error(`Item ${sourceSlot.name} data undefined!`);
 
-  const targetSlot = targetInventory.items[target.item.slot - 1];
-
-  if (targetSlot === undefined) return console.error(`Target slot undefined`);
-
   const count = state.itemAmount === 0 ? 1 : state.itemAmount;
 
-  const data = {
-    fromSlot: sourceSlot,
-    toSlot: targetSlot,
-    fromType: sourceInventory.type,
-    toType: targetInventory.type,
-    count,
-  };
+  let toSlot: number;
+  if (isGridInventory(targetInventory.type)) {
+    let maxSlot = 0;
+    for (const i of targetInventory.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+    toSlot = maxSlot + 1;
+  } else {
+    const targetSlotData = targetInventory.items[target.item.slot - 1];
+    if (targetSlotData === undefined) return console.error(`Target slot undefined`);
+    toSlot = targetSlotData.slot;
+  }
 
   store.dispatch(
     craftItem({
-      ...data,
       fromSlot: sourceSlot.slot,
-      toSlot: targetSlot.slot,
+      toSlot,
+      fromType: sourceInventory.type,
+      toType: targetInventory.type,
+      count,
     })
   );
 };

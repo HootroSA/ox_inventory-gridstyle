@@ -47,7 +47,7 @@ function server.setPlayerInventory(player, data)
 					local weight = Inventory.SlotWeight(item, v)
 					totalWeight = totalWeight + weight
 
-					inventory[v.slot] = {name = item.name, label = item.label, weight = weight, slot = v.slot, count = v.count, description = item.description, metadata = v.metadata, stack = item.stack, close = item.close}
+					inventory[v.slot] = {name = item.name, label = item.label, weight = weight, slot = v.slot, count = v.count, description = item.description, metadata = v.metadata, stack = item.stack, close = item.close, gridX = v.gridX, gridY = v.gridY, gridRotated = v.gridRotated}
 				end
 			end
 		end
@@ -124,12 +124,20 @@ local function openInventory(source, invType, data, ignoreSecurityChecks)
 
     if not left then return end
 
-    left:closeInventory(true)
-	Inventory.CloseAll(left, source)
-
     if invType == 'player' and data == source then
         data = nil
     end
+
+    if not data then
+        for viewerId in pairs(left.openedBy) do
+            if viewerId ~= source then
+                return false, false, 'inventory_being_searched'
+            end
+        end
+    end
+
+    left:closeInventory(true, true)
+	Inventory.CloseAll(left, source)
 
     local playerPed = left.player.ped
 
@@ -231,8 +239,6 @@ local function openInventory(source, invType, data, ignoreSecurityChecks)
 
 		if not right then return end
 
-        -- Security check to make sure the requested inventory type is the same as the found inventory
-        -- Only case where a missmatch is tolerated is for temporary stashes
         if right.type ~= invType and not (right.type == 'temp' and invType == 'stash') then
             DropPlayer(source, 'sussy')
             return
@@ -276,7 +282,9 @@ local function openInventory(source, invType, data, ignoreSecurityChecks)
 		type = left.type,
 		slots = left.slots,
 		weight = left.weight,
-		maxWeight = left.maxWeight
+		maxWeight = left.maxWeight,
+		gridWidth = left.gridWidth,
+		gridHeight = left.gridHeight,
 	}, right and {
 		id = right.id,
 		label = right.player and '' or right.label,
@@ -286,7 +294,9 @@ local function openInventory(source, invType, data, ignoreSecurityChecks)
 		maxWeight = right.maxWeight,
 		items = right.items,
 		coords = closestCoords or right.coords,
-		distance = right.distance
+		distance = right.distance,
+		gridWidth = right.gridWidth,
+		gridHeight = right.gridHeight,
 	}
 end
 
@@ -309,6 +319,94 @@ lib.callback.register('ox_inventory:openInventory', function(source, invType, da
     end
 
     return openInventory(source, invType, data)
+end)
+
+---@param slot number The player inventory slot containing the backpack item
+lib.callback.register('ox_inventory:openBackpack', function(source, slot)
+	local playerInventory = Inventory(source)
+
+	if not playerInventory then return false end
+
+	local item = playerInventory.items[slot]
+
+	if not item or not item.metadata or not item.metadata.isBackpack or not item.metadata.container then
+		return false
+	end
+
+	if playerInventory.openBackpack then
+		local oldBackpack = Inventory(playerInventory.openBackpack)
+
+		if oldBackpack then
+			oldBackpack.openedBy[source] = nil
+			oldBackpack.changed = true
+		end
+
+		playerInventory.openBackpack = nil
+		playerInventory.backpackSlot = nil
+	end
+
+	local backpack = Inventory(item.metadata.container)
+
+	if not backpack then
+		local backpackProps = Items.backpacks and Items.backpacks[item.name]
+
+		backpack = Inventory.Create(
+			item.metadata.container,
+			item.label,
+			'backpack',
+			item.metadata.size[1],
+			0,
+			item.metadata.size[2],
+			false
+		)
+
+		if backpack and backpackProps and backpackProps.gridSize then
+			backpack.gridWidth = backpackProps.gridSize[1]
+			backpack.gridHeight = backpackProps.gridSize[2]
+		end
+	end
+
+	if not backpack then return false end
+
+	playerInventory.openBackpack = backpack.id
+	playerInventory.backpackSlot = slot
+
+	if not backpack.openedBy then backpack.openedBy = {} end
+	backpack.openedBy[source] = true
+
+	return {
+		id = backpack.id,
+		label = backpack.label,
+		type = 'backpack',
+		slots = backpack.slots,
+		weight = backpack.weight,
+		maxWeight = backpack.maxWeight,
+		items = backpack.items,
+		gridWidth = backpack.gridWidth,
+		gridHeight = backpack.gridHeight,
+	}
+end)
+
+RegisterNetEvent('ox_inventory:closeBackpack', function()
+	local source = source
+	local playerInventory = Inventory(source)
+
+	if not playerInventory or not playerInventory.openBackpack then return end
+
+	local backpack = Inventory(playerInventory.openBackpack)
+
+	if backpack then
+		if backpack.openedBy then
+			backpack.openedBy[source] = nil
+		end
+
+		if backpack.changed then
+			Inventory.Save(backpack)
+		end
+	end
+
+	playerInventory.openBackpack = nil
+	playerInventory.backpackSlot = nil
 end)
 
 ---@param netId number
@@ -359,7 +457,9 @@ lib.callback.register('ox_inventory:getInventory', function(source, id)
 		weight = inventory.weight,
 		maxWeight = inventory.maxWeight,
 		owned = inventory.owner and true or false,
-		items = inventory.items
+		items = inventory.items,
+		gridWidth = inventory.gridWidth,
+		gridHeight = inventory.gridHeight,
 	}
 end)
 

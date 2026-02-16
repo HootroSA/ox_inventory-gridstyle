@@ -28,8 +28,9 @@ import {
   useTransitionStyles,
   useTypeahead,
 } from '@floating-ui/react';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { useAppSelector } from '../../../store';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAppSelector, useAppDispatch } from '../../../store';
+import { closeContextMenu } from '../../../store/contextMenu';
 
 const MenuContext = React.createContext<{
   getItemProps: (userProps?: React.HTMLProps<HTMLElement>) => Record<string, unknown>;
@@ -54,6 +55,7 @@ interface MenuProps {
 export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & React.HTMLProps<HTMLButtonElement>>(
   ({ children, label, ...props }, forwardedRef) => {
     const menu = useAppSelector((state) => state.contextMenu);
+    const dispatch = useAppDispatch();
     const [isOpen, setIsOpen] = useState(false);
     const [hasFocusInside, setHasFocusInside] = useState(false);
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -69,18 +71,33 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
 
     const isNested = parentId != null;
 
+    const handleOpenChange = useCallback(
+      (open: boolean) => {
+        setIsOpen(open);
+        if (!open && !isNested) {
+          dispatch(closeContextMenu());
+        }
+      },
+      [dispatch, isNested]
+    );
+
     const { floatingStyles, refs, context } = useFloating<HTMLButtonElement>({
       nodeId,
       open: isOpen,
-      onOpenChange: setIsOpen,
+      onOpenChange: handleOpenChange,
       placement: isNested ? 'right-start' : 'bottom-start',
       middleware: [offset({ mainAxis: isNested ? 0 : 4, alignmentAxis: isNested ? -4 : 0 }), flip(), shift()],
       whileElementsMounted: autoUpdate,
     });
 
-    const { isMounted, styles } = useTransitionStyles(context);
+    const { isMounted, styles } = useTransitionStyles(context, {
+      duration: 120,
+      initial: {
+        opacity: 0,
+      },
+    });
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (isNested) return;
       if (menu.coords) {
         refs.setPositionReference({
@@ -139,14 +156,12 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
       typeahead,
     ]);
 
-    // Event emitter allows you to communicate across tree components.
-    // This effect closes all menus when an item gets clicked anywhere
-    // in the tree.
     useEffect(() => {
       if (!tree) return;
 
       function handleTreeClick() {
         setIsOpen(false);
+        if (!isNested) dispatch(closeContextMenu());
       }
 
       function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
@@ -162,7 +177,7 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
         tree.events.off('click', handleTreeClick);
         tree.events.off('menuopen', onSubMenuOpen);
       };
-    }, [tree, nodeId, parentId]);
+    }, [tree, nodeId, parentId, dispatch, isNested]);
 
     useEffect(() => {
       if (isOpen && tree) {
@@ -212,12 +227,12 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
           <FloatingList elementsRef={elementsRef} labelsRef={labelsRef}>
             {isMounted && (
               <FloatingPortal>
-                <FloatingOverlay lockScroll>
+                <FloatingOverlay lockScroll style={{ zIndex: 9999 }}>
                   <FloatingFocusManager context={context} modal={true} initialFocus={refs.floating}>
                     <div
                       ref={refs.setFloating}
                       className="context-menu-list"
-                      style={{ ...floatingStyles, ...styles }}
+                      style={{ ...floatingStyles, ...styles, zIndex: 9999 }}
                       {...getFloatingProps()}
                     >
                       {children}
@@ -236,12 +251,14 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
 interface MenuItemProps {
   label: string;
   disabled?: boolean;
+  icon?: React.ReactNode;
+  variant?: 'default' | 'danger';
 }
 
 export const MenuItem = React.forwardRef<
   HTMLButtonElement,
   MenuItemProps & React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ label, disabled, ...props }, forwardedRef) => {
+>(({ label, disabled, icon, variant, ...props }, forwardedRef) => {
   const menu = useContext(MenuContext);
   const item = useListItem({ label: disabled ? null : label });
   const tree = useFloatingTree();
@@ -253,7 +270,7 @@ export const MenuItem = React.forwardRef<
       ref={useMergeRefs([item.ref, forwardedRef])}
       type="button"
       role="menuitem"
-      className="context-menu-item"
+      className={`context-menu-item ${variant === 'danger' ? 'context-menu-item--danger' : ''}`}
       tabIndex={isActive ? 0 : -1}
       disabled={disabled}
       {...menu.getItemProps({
@@ -267,7 +284,10 @@ export const MenuItem = React.forwardRef<
         },
       })}
     >
-      {label}
+      <span className="context-menu-item-content">
+        {icon && <span className="context-menu-item-icon">{icon}</span>}
+        {label}
+      </span>
     </button>
   );
 });

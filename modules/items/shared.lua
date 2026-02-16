@@ -16,6 +16,8 @@ end
 ---@param data OxItem
 local function newItem(data)
 	data.weight = data.weight or 0
+	data.width = data.width or 1
+	data.height = data.height or 1
 
 	if data.close == nil then
 		data.close = true
@@ -74,6 +76,7 @@ local function newItem(data)
 end
 
 for type, data in pairs(lib.load('data.weapons') or {}) do
+	if type == 'ComponentSizeModifiers' then goto nextType end
 	for k, v in pairs(data) do
 		v.name = k
 		v.close = type == 'Ammo' and true or false
@@ -86,7 +89,40 @@ for type, data in pairs(lib.load('data.weapons') or {}) do
 			v.stack = v.throwable and true or false
 			v.durability = v.durability or 0.05
 			v.weapon = true
+
+			if not v.width or not v.height then
+				if v.throwable then
+					v.width = v.width or 1
+					v.height = v.height or 1
+				elseif v.ammoname then
+					local w = v.weight or 0
+					if w <= 2000 then
+						v.width = v.width or 2
+						v.height = v.height or 1
+					elseif w <= 3500 then
+						v.width = v.width or 3
+						v.height = v.height or 2
+					else
+						v.width = v.width or 5
+						v.height = v.height or 2
+					end
+				else
+					local w = v.weight or 0
+					if w <= 500 then
+						v.width = v.width or 1
+						v.height = v.height or 2
+					elseif w <= 2500 then
+						v.width = v.width or 1
+						v.height = v.height or 3
+					else
+						v.width = v.width or 2
+						v.height = v.height or 3
+					end
+				end
+			end
 		else
+			v.width = v.width or 1
+			v.height = v.height or 1
 			v.stack = true
 		end
 
@@ -104,6 +140,7 @@ for type, data in pairs(lib.load('data.weapons') or {}) do
 
 		ItemList[k] = v
 	end
+	::nextType::
 end
 
 for k, v in pairs(lib.load('data.items') or {}) do

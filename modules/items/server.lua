@@ -6,7 +6,11 @@ local Utils = require 'modules.utils.server'
 
 TriggerEvent('ox_inventory:itemList', ItemList)
 
-Items.containers = require 'modules.items.containers'
+do
+	local containerData = require 'modules.items.containers'
+	Items.containers = containerData.containers
+	Items.backpacks = containerData.backpacks
+end
 
 -- Possible metadata when creating garbage
 local trash = {
@@ -18,6 +22,8 @@ local trash = {
 	{description = 'An old rolled up newspaper.', weight = 200, image = 'WEAPON_ACIDPACKAGE'},
 }
 
+local nameCache = {}
+
 ---@param _ table?
 ---@param name string?
 ---@return table?
@@ -26,13 +32,17 @@ local function getItem(_, name)
 
 	if type(name) ~= 'string' then return end
 
-    name = name:lower()
+    local cached = nameCache[name]
+    if cached then return ItemList[cached] end
 
-    if name:sub(0, 7) == 'weapon_' then
-        name = name:upper()
+    local normalized = name:lower()
+
+    if normalized:sub(1, 7) == 'weapon_' then
+        normalized = normalized:upper()
     end
 
-    return ItemList[name]
+    nameCache[name] = normalized
+    return ItemList[normalized]
 end
 
 setmetatable(Items --[[@as table]], {
@@ -197,6 +207,13 @@ function Items.Metadata(inv, item, metadata, count)
 			count = 1
 			metadata.container = metadata.container or GenerateText(3)..os.time()
 			metadata.size = container.size
+
+			local backpackProps = Items.backpacks[item.name]
+
+			if backpackProps then
+				metadata.isBackpack = true
+				metadata.gridSize = backpackProps.gridSize
+			end
 		elseif not next(metadata) then
 			if item.name == 'identification' then
 				count = 1

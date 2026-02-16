@@ -16,14 +16,14 @@ const InventoryControl: React.FC = () => {
   const [infoVisible, setInfoVisible] = useState(false);
 
   const [, use] = useDrop<DragSource, void, any>(() => ({
-    accept: 'SLOT',
+    accept: ['SLOT', 'GRID_ITEM'],
     drop: (source) => {
       source.inventory === 'player' && onUse(source.item);
     },
   }));
 
   const [, give] = useDrop<DragSource, void, any>(() => ({
-    accept: 'SLOT',
+    accept: ['SLOT', 'GRID_ITEM'],
     drop: (source) => {
       source.inventory === 'player' && onGive(source.item);
     },

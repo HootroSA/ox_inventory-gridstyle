@@ -114,22 +114,11 @@ end
 
 local rewardTypes = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3 | 1 << 7 | 1 << 10
 
-local weaponWheelOverride = false
-
----Enables the weapon wheel, but disables the use of inventory weapons.
----Mostly used for weaponised vehicles, though could be called for "minigames"
----@param state boolean
----@param override boolean
-function Utils.WeaponWheel(state, override)
-    if not override and weaponWheelOverride and state == false then
-        return
-    end
+-- Enables the weapon wheel, but disables the use of inventory weapons.
+-- Mostly used for weaponised vehicles, though could be called for "minigames"
+function Utils.WeaponWheel(state)
     if client.disableweapons then state = true end
     if state == nil then state = EnableWeaponWheel end
-
-    if override then
-        weaponWheelOverride = state
-    end
 
     EnableWeaponWheel = state
     SetWeaponsNoAutoswap(not state)
@@ -141,9 +130,7 @@ function Utils.WeaponWheel(state, override)
     end
 end
 
-exports('weaponWheel', function (state)
-    Utils.WeaponWheel(state, true)
-end)
+exports('weaponWheel', Utils.WeaponWheel)
 
 function Utils.CreateBlip(settings, coords)
     local blip = AddBlipForCoord(coords.x, coords.y, coords.z)

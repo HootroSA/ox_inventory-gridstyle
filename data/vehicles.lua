@@ -35,56 +35,63 @@ return {
 		[`trophytruck2`] = 0,
 	},
 
-	-- slots, maxWeight; default weight is 8000 per slot
+	-- Vehicle storage config: { gridWidth, gridHeight, maxWeight }
+	-- The grid defines how big the inventory is visually and how many items fit.
+	-- Priority: per-model > per-class > fallback defaults.
+	--
+	-- To override a specific vehicle:
+	--   models = { [`adder`] = { gridWidth = 4, gridHeight = 2, maxWeight = 10000 } }
+
 	glovebox = {
-		[0] = {11, 88000},		-- Compact
-		[1] = {11, 88000},		-- Sedan
-		[2] = {11, 88000},		-- SUV
-		[3] = {11, 88000},		-- Coupe
-		[4] = {11, 88000},		-- Muscle
-		[5] = {11, 88000},		-- Sports Classic
-		[6] = {11, 88000},		-- Sports
-		[7] = {11, 88000},		-- Super
-		[8] = {5, 40000},		-- Motorcycle
-		[9] = {11, 88000},		-- Offroad
-		[10] = {11, 88000},		-- Industrial
-		[11] = {11, 88000},		-- Utility
-		[12] = {11, 88000},		-- Van
-		[14] = {31, 248000},	-- Boat
-		[15] = {31, 248000},	-- Helicopter
-		[16] = {51, 408000},	-- Plane
-		[17] = {11, 88000},		-- Service
-		[18] = {11, 88000},		-- Emergency
-		[19] = {11, 88000},		-- Military
-		[20] = {11, 88000},		-- Commercial (trucks)
+		[0]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Compact
+		[1]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Sedan
+		[2]  = { gridWidth = 5, gridHeight = 2, maxWeight = 88000 },	-- SUV
+		[3]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Coupe
+		[4]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Muscle
+		[5]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Sports Classic
+		[6]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Sports
+		[7]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Super
+		[8]  = { gridWidth = 3, gridHeight = 1, maxWeight = 40000 },	-- Motorcycle
+		[9]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Offroad
+		[10] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Industrial
+		[11] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Utility
+		[12] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Van
+		[14] = { gridWidth = 5, gridHeight = 3, maxWeight = 248000 },	-- Boat
+		[15] = { gridWidth = 5, gridHeight = 3, maxWeight = 248000 },	-- Helicopter
+		[16] = { gridWidth = 6, gridHeight = 4, maxWeight = 408000 },	-- Plane
+		[17] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Service
+		[18] = { gridWidth = 5, gridHeight = 2, maxWeight = 88000 },	-- Emergency
+		[19] = { gridWidth = 5, gridHeight = 2, maxWeight = 88000 },	-- Military
+		[20] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },	-- Commercial
 		models = {
-			[`xa21`] = {11, 88000}
+			[`xa21`] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },
 		}
 	},
 
 	trunk = {
-		[0] = {21, 168000},		-- Compact
-		[1] = {41, 328000},		-- Sedan
-		[2] = {51, 408000},		-- SUV
-		[3] = {31, 248000},		-- Coupe
-		[4] = {41, 328000},		-- Muscle
-		[5] = {31, 248000},		-- Sports Classic
-		[6] = {31, 248000},		-- Sports
-		[7] = {21, 168000},		-- Super
-		[8] = {5, 40000},		-- Motorcycle
-		[9] = {51, 408000},		-- Offroad
-		[10] = {51, 408000},	-- Industrial
-		[11] = {41, 328000},	-- Utility
-		[12] = {61, 488000},	-- Van
+		[0]  = { gridWidth = 6, gridHeight = 3, maxWeight = 168000 },	-- Compact
+		[1]  = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },	-- Sedan
+		[2]  = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },	-- SUV
+		[3]  = { gridWidth = 6, gridHeight = 4, maxWeight = 248000 },	-- Coupe
+		[4]  = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },	-- Muscle
+		[5]  = { gridWidth = 6, gridHeight = 3, maxWeight = 248000 },	-- Sports Classic
+		[6]  = { gridWidth = 6, gridHeight = 3, maxWeight = 248000 },	-- Sports
+		[7]  = { gridWidth = 5, gridHeight = 2, maxWeight = 168000 },	-- Super
+		[8]  = { gridWidth = 3, gridHeight = 1, maxWeight = 40000 },	-- Motorcycle
+		[9]  = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },	-- Offroad
+		[10] = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },	-- Industrial
+		[11] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },	-- Utility
+		[12] = { gridWidth = 9, gridHeight = 6, maxWeight = 488000 },	-- Van
 		-- [14] -- Boat
 		-- [15] -- Helicopter
 		-- [16] -- Plane
-		[17] = {41, 328000},	-- Service
-		[18] = {41, 328000},	-- Emergency
-		[19] = {41, 328000},	-- Military
-		[20] = {61, 488000},	-- Commercial
+		[17] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },	-- Service
+		[18] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },	-- Emergency
+		[19] = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },	-- Military
+		[20] = { gridWidth = 10, gridHeight = 6, maxWeight = 488000 },	-- Commercial
 		models = {
-			[`xa21`] = {11, 10000}
+			[`xa21`] = { gridWidth = 4, gridHeight = 2, maxWeight = 10000 },
+			[`sultan`] = { gridWidth = 5, gridHeight = 5, maxWeight = 88000 },
 		},
 	}
 }

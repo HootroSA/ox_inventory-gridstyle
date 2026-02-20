@@ -58,7 +58,7 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
         }
 
         if (isGridInventory(targetInventory.type)) {
-          const existingIndex = targetInventory.items.findIndex((i) => i.slot === data.item.slot);
+          const existingIndex = targetInventory.items.findIndex((i) => i != null && i.slot === data.item.slot);
           if (data.item.name) {
             if (existingIndex !== -1) {
               const existing = targetInventory.items[existingIndex];

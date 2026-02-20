@@ -33,7 +33,7 @@ const Inventory: React.FC = () => {
   const hasRightInventory = useMemo(() => {
     if (rightInventory.type === '' || rightInventory.id === '') return false;
     if ((rightInventory.type === 'drop' || rightInventory.type === 'newdrop') &&
-        !rightInventory.items.some((item) => isSlotWithItem(item))) return false;
+        !rightInventory.items.some((item) => item != null && isSlotWithItem(item))) return false;
     return true;
   }, [rightInventory.type, rightInventory.id, rightInventory.items]);
 
@@ -87,6 +87,7 @@ const Inventory: React.FC = () => {
   useNuiEvent<false>('closeInventory', () => {
     batch(() => {
       setInventoryVisible(false);
+      setInfoVisible(false);
       dispatch(closeContextMenu());
       dispatch(closeTooltip());
       dispatch(clearCraftQueue());
@@ -145,10 +146,10 @@ const Inventory: React.FC = () => {
       let sourceItem;
       let fromType: string;
       if (source.inventory === 'backpack' || source.inventoryId === state.backpackInventory.id) {
-        sourceItem = state.backpackInventory.items.find((i) => i.slot === source.item.slot);
+        sourceItem = state.backpackInventory.items.find((i) => i != null && i.slot === source.item.slot);
         fromType = 'backpack';
       } else {
-        sourceItem = state.leftInventory.items.find((i) => i.slot === source.item.slot);
+        sourceItem = state.leftInventory.items.find((i) => i != null && i.slot === source.item.slot);
         fromType = 'player';
       }
       if (!sourceItem || !isSlotWithItem(sourceItem)) return;

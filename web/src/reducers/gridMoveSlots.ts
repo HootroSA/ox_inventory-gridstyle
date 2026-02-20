@@ -19,7 +19,7 @@ export const gridMoveSlotsReducer: CaseReducer<
   const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
   const pieceWeight = fromSlot.weight / fromSlot.count;
   const curTime = Math.floor(Date.now() / 1000);
-  const sourceIndex = sourceInventory.items.findIndex((i) => i.slot === fromSlot.slot);
+  const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);
   if (sourceIndex === -1) return;
 
   const fromItem = sourceInventory.items[sourceIndex];

@@ -122,6 +122,8 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
     for (const invItem of inventoryItems) {
       if (!isSlotWithItem(invItem) || !Items[invItem.name]?.weapon) continue;
 
+      if ((invItem as SlotWithItem).searched === false) continue;
+
       if (draggedCompatible && !draggedCompatible.includes(invItem.name)) continue;
 
       const existingComps = (invItem as SlotWithItem).metadata?.components ?? [];
@@ -178,9 +180,10 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
   if (isComponentDrag) {
     const cursorSlotId = occupancy[cell.y]?.[cell.x];
     if (cursorSlotId !== null && cursorSlotId !== undefined) {
-      const weaponSlot = inventoryItems.find((i) => i.slot === cursorSlotId);
+      const weaponSlot = inventoryItems.find((i) => i != null && i.slot === cursorSlotId);
       if (
         weaponSlot && isSlotWithItem(weaponSlot) && Items[weaponSlot.name]?.weapon &&
+        (weaponSlot as SlotWithItem).searched !== false &&
         !(draggedCompatible && !draggedCompatible.includes(weaponSlot.name))
       ) {
         const existingComponents: string[] = weaponSlot.metadata?.components ?? [];
@@ -252,7 +255,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
       return rightInventory;
     };
     const srcInv = resolveSourceInv();
-    const srcItem = srcInv.items.find((i) => i.slot === data.item.slot);
+    const srcItem = srcInv.items.find((i) => i != null && i.slot === data.item.slot);
     if (srcItem && isSlotWithItem(srcItem)) {
       const meta = (srcItem as SlotWithItem).metadata;
       if (inventoryType === 'backpack' && meta?.container) nestingBlocked = true;
@@ -282,7 +285,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
 
     if (!outOfBounds && !hasEmptyCells && occupiedSlots.size === 1) {
       const targetSlotId = [...occupiedSlots][0];
-      const targetItem = inventoryItems.find((i) => i.slot === targetSlotId);
+      const targetItem = inventoryItems.find((i) => i != null && i.slot === targetSlotId);
 
       if (targetItem && isSlotWithItem(targetItem)) {
         const itemData = Items[data.item.name];
@@ -298,7 +301,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
         } else if (isStackable && stackFull) {
           showAsValid = false;
         } else if (isLocalItem) {
-          const sourceItem = inventoryItems.find((i) => i.slot === data.item.slot);
+          const sourceItem = inventoryItems.find((i) => i != null && i.slot === data.item.slot);
           if (sourceItem && isSlotWithItem(sourceItem)) {
             showAsValid = !!canSwapItems(
               gridWidth, gridHeight, inventoryItems, itemSizes,
@@ -308,7 +311,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
           }
         } else {
           const sourceInv = data.inventoryId === leftInventory.id ? leftInventory : rightInventory;
-          const sourceItem = sourceInv.items.find((i) => i.slot === data.item.slot);
+          const sourceItem = sourceInv.items.find((i) => i != null && i.slot === data.item.slot);
           if (sourceItem && isSlotWithItem(sourceItem)) {
             const srcGridW = sourceInv.gridWidth ?? DEFAULT_GRID_DIMENSIONS[sourceInv.type]?.gridWidth ?? 10;
             const srcGridH = sourceInv.gridHeight ?? DEFAULT_GRID_DIMENSIONS[sourceInv.type]?.gridHeight ?? 5;

@@ -112,8 +112,9 @@ export const canCraftItemWithReservations = (
 };
 
 export const isSlotWithItem = (slot: Slot, strict: boolean = false): slot is SlotWithItem =>
-  (slot.name !== undefined && slot.weight !== undefined) ||
-  (strict && slot.name !== undefined && slot.count !== undefined && slot.weight !== undefined);
+  slot != null &&
+  ((slot.name !== undefined && slot.weight !== undefined) ||
+  (strict && slot.name !== undefined && slot.count !== undefined && slot.weight !== undefined));
 
 export const canStack = (sourceSlot: Slot, targetSlot: Slot) =>
   sourceSlot.name === targetSlot.name && isEqual(sourceSlot.metadata, targetSlot.metadata);

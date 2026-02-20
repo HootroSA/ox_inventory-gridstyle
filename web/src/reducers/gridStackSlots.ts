@@ -16,8 +16,8 @@ export const gridStackSlotsReducer: CaseReducer<
   const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
   const pieceWeight = fromSlot.weight / fromSlot.count;
 
-  const sourceIndex = sourceInventory.items.findIndex((i) => i.slot === fromSlot.slot);
-  const targetIndex = targetInventory.items.findIndex((i) => i.slot === toSlot.slot);
+  const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);
+  const targetIndex = targetInventory.items.findIndex((i) => i != null && i.slot === toSlot.slot);
 
   if (targetIndex === -1) return;
 

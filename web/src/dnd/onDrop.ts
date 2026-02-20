@@ -11,7 +11,7 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
 
   const { sourceInventory, targetInventory } = getTargetInventory(state, source.inventory, target?.inventory);
   const sourceSlot = (isGridInventory(sourceInventory.type)
-    ? sourceInventory.items.find((i) => i.slot === source.item.slot)
+    ? sourceInventory.items.find((i) => i != null && i.slot === source.item.slot)
     : sourceInventory.items[source.item.slot - 1]) as SlotWithItem;
 
   const sourceData = Items[sourceSlot.name];
@@ -26,7 +26,7 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
 
   const targetSlot = target
     ? (isGridInventory(targetInventory.type)
-        ? targetInventory.items.find((i) => i.slot === target.item.slot)
+        ? targetInventory.items.find((i) => i != null && i.slot === target.item.slot)
         : targetInventory.items[target.item.slot - 1])
     : findAvailableSlot(sourceSlot, sourceData, targetInventory.items);
 

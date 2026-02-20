@@ -13,7 +13,7 @@ export const onCraft = (source: DragSource, target: DropTarget) => {
 
   const sourceSlot = sourceInventory.items[source.item.slot - 1];
 
-  if (!isSlotWithItem(sourceSlot)) throw new Error(`Item ${sourceSlot.slot} name === undefined`);
+  if (!sourceSlot || !isSlotWithItem(sourceSlot)) throw new Error(`Item ${source.item.slot} name === undefined`);
 
   if (sourceSlot.count === 0) return;
 
@@ -26,7 +26,7 @@ export const onCraft = (source: DragSource, target: DropTarget) => {
   let toSlot: number;
   if (isGridInventory(targetInventory.type)) {
     let maxSlot = 0;
-    for (const i of targetInventory.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+    for (const i of targetInventory.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
     toSlot = maxSlot + 1;
   } else {
     const targetSlotData = targetInventory.items[target.item.slot - 1];

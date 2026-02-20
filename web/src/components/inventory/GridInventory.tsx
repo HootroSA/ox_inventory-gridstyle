@@ -42,6 +42,7 @@ import { validateMove } from '../../thunks/validateItems';
 import { buyItem } from '../../thunks/buyItem';
 import { batchCollectCraftItems } from '../../thunks/craftQueue';
 import { craftItem } from '../../thunks/craftItem';
+import { getTypeIcon } from '../../helpers/getTypeIcon';
 
 function pixelToGridCell(
   clientX: number,
@@ -72,35 +73,6 @@ function pixelToGridCell(
   const cellY = Math.min(Math.floor(relY / (cellSize + gap)), gridHeight - 1);
 
   return { x: cellX, y: cellY };
-}
-
-function getTypeIcon(type: string): React.ReactNode {
-  const p = { className: 'grid-header-icon', width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  switch (type) {
-    case 'player':
-      return <svg {...p}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
-    case 'stash':
-      return <svg {...p}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>;
-    case 'shop':
-      return <svg {...p}><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg>;
-    case 'crafting':
-      return <svg {...p}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>;
-    case 'trunk':
-      return <svg {...p}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>;
-    case 'drop':
-    case 'newdrop':
-      return <svg {...p}><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>;
-    case 'glovebox':
-      return <svg {...p}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>;
-    case 'dumpster':
-      return <svg {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-    case 'policeevidence':
-      return <svg {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
-    case 'backpack':
-      return <svg {...p}><path d="M4 10a4 4 0 014-4h8a4 4 0 014 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10z"/><path d="M9 6V4a3 3 0 016 0v2"/><path d="M8 22v-4a4 4 0 018 0v4"/></svg>;
-    default:
-      return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>;
-  }
 }
 
 interface GridInventoryProps {
@@ -161,7 +133,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
       const shopInv = reduxState.rightInventory;
       const targetInv = inventory.type === 'backpack' ? reduxState.backpackInventory : reduxState.leftInventory;
 
-      const sourceSlot = shopInv.items.find((i) => i.slot === source.item.slot);
+      const sourceSlot = shopInv.items.find((i) => i != null && i.slot === source.item.slot);
       if (!sourceSlot || !isSlotWithItem(sourceSlot)) return;
       if (sourceSlot.count === 0) return;
 
@@ -178,8 +150,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         toSlotNum = stackSlot;
       } else {
         let maxSlot = 0;
-        for (const i of targetInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
-        for (const i of shopInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+        for (const i of targetInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+        for (const i of shopInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
         toSlotNum = maxSlot + 1;
       }
 
@@ -205,7 +177,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
       const craftInv = reduxState.rightInventory;
       const targetInv = inventory.type === 'backpack' ? reduxState.backpackInventory : reduxState.leftInventory;
 
-      const sourceSlot = craftInv.items.find((i) => i.slot === source.item.slot);
+      const sourceSlot = craftInv.items.find((i) => i != null && i.slot === source.item.slot);
       if (!sourceSlot || !isSlotWithItem(sourceSlot)) return;
 
       const count = itemAmount === 0 ? 1 : itemAmount;
@@ -215,7 +187,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         toSlotNum = stackSlot;
       } else {
         let maxSlot = 0;
-        for (const i of targetInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+        for (const i of targetInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
         toSlotNum = maxSlot + 1;
       }
 
@@ -265,7 +237,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             } else {
               const slotId = occupancy[ay]?.[ax];
               if (slotId !== null && slotId !== undefined) {
-                const existing = inventory.items.find((i) => i.slot === slotId);
+                const existing = inventory.items.find((i) => i != null && i.slot === slotId);
                 const existingItemData = Items[itemName];
                 if (existing && isSlotWithItem(existing) && existing.name === itemName && (existingItemData?.stack ?? existing.stack)) {
                   const shopMaxStack = existingItemData?.stackSize ?? existing.stackSize;
@@ -290,7 +262,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         }
 
         let maxSlot = 0;
-        for (const i of inventory.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+        for (const i of inventory.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
         const toSlot = stackSlot ?? maxSlot + 1;
 
         dispatch(
@@ -350,7 +322,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             } else {
               const slotId = occupancy[ay]?.[ax];
               if (slotId !== null && slotId !== undefined) {
-                const existing = inventory.items.find((i) => i.slot === slotId);
+                const existing = inventory.items.find((i) => i != null && i.slot === slotId);
                 if (existing && isSlotWithItem(existing) && existing.name === source.item.name && Items[source.item.name]?.stack) {
                   stackSlot = existing.slot;
                   dropX = existing.gridX;
@@ -393,7 +365,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
           : source.inventoryId === reduxState.backpackInventory.id
           ? reduxState.backpackInventory
           : reduxState.rightInventory;
-      const sourceItem = sourceInv.items.find((i) => i.slot === source.item.slot);
+      const sourceItem = sourceInv.items.find((i) => i != null && i.slot === source.item.slot);
       if (!sourceItem || !isSlotWithItem(sourceItem)) return;
 
       const sourceType = sourceInv.type;
@@ -413,7 +385,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         const cursorOccupancy = buildOccupancyGrid(gridWidth, gridHeight, inventory.items, itemSizes);
         const cursorSlotId = cursorOccupancy[cell.y]?.[cell.x];
         if (cursorSlotId !== null && cursorSlotId !== undefined) {
-          const weaponSlot = inventory.items.find((i) => i.slot === cursorSlotId);
+          const weaponSlot = inventory.items.find((i) => i != null && i.slot === cursorSlotId);
           if (weaponSlot && isSlotWithItem(weaponSlot) && Items[weaponSlot.name]?.weapon) {
             if (weaponSlot.searched === false) return;
             if (draggedItemData.compatibleWeapons && !draggedItemData.compatibleWeapons.includes(weaponSlot.name)) return;
@@ -486,7 +458,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
 
       const cursorSlotId = occupancy[cell.y]?.[cell.x];
       if (cursorSlotId !== null && cursorSlotId !== undefined) {
-        const cursorTarget = inventory.items.find((i) => i.slot === cursorSlotId);
+        const cursorTarget = inventory.items.find((i) => i != null && i.slot === cursorSlotId);
         const itemData = Items[sourceItem.name];
         if (cursorTarget && isSlotWithItem(cursorTarget) && cursorTarget.searched !== false &&
             canStack(sourceItem, cursorTarget) && (itemData?.stack ?? cursorTarget.stack)) {
@@ -531,8 +503,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         let toSlotNum: number;
         if (needsUniqueSlot) {
           let maxSlot = 0;
-          for (const i of sourceInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
-          for (const i of inventory.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+          for (const i of sourceInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+          for (const i of inventory.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
           toSlotNum = maxSlot + 1;
         } else {
           toSlotNum = sourceItem.slot;
@@ -565,7 +537,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
         );
       } else if (!hasEmptyCells && occupiedSlots.size === 1) {
         const targetSlotId = [...occupiedSlots][0];
-        const targetItem = inventory.items.find((i) => i.slot === targetSlotId);
+        const targetItem = inventory.items.find((i) => i != null && i.slot === targetSlotId);
         if (!targetItem || !isSlotWithItem(targetItem)) return;
         if (targetItem.searched === false) return;
 
@@ -681,14 +653,13 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
     : '0.00';
   const weightPercent = inventory.maxWeight ? (weight / inventory.maxWeight) * 100 : 0;
 
-  const segments = 10;
-  const filledSegments = Math.round((weightPercent / 100) * segments);
-
   return (
     <div className="inventory-grid-wrapper" data-inv-type={inventory.type} style={{ pointerEvents: isBusy ? 'none' : 'auto' }}>
       <div className={`inventory-grid-header-wrapper${isLocked ? ' header--locked' : ''}`} onMouseDown={onHeaderMouseDown}>
         <div className="grid-header-left">
-          {getTypeIcon(inventory.type)}
+          <div className="grid-header-icon-wrap">
+            {getTypeIcon(inventory.type)}
+          </div>
           <span className="grid-header-label">{inventory.label}</span>
         </div>
         <div className="grid-header-right">
@@ -727,19 +698,18 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
           )}
           {inventory.maxWeight !== undefined && inventory.maxWeight > 0 && (
             <div className="grid-header-weight-group">
-              <span className="grid-header-weight">{weightKg} Kg</span>
+              <span className="grid-header-weight">{weightKg}</span>
               <span className="grid-header-weight-separator">/</span>
               <span className="grid-header-weight">{maxWeightKg} Kg</span>
-              <div className="grid-header-segments">
-                {Array.from({ length: segments }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`grid-header-segment ${i < filledSegments ? 'grid-header-segment--filled' : ''}`}
-                  />
-                ))}
+              <div className={`grid-header-weight-bar${weightPercent >= 90 ? ' grid-header-weight-bar--critical' : ''}`}>
+                <div
+                  className="grid-header-weight-bar-fill"
+                  style={{ width: `${Math.min(weightPercent, 100)}%` }}
+                />
               </div>
             </div>
           )}
+          {(canSort || onToggleLock || onClose) && <div className="grid-header-btn-separator" />}
           {canSort && !isReadOnly && (
             <button className="panel-sort-btn" onClick={handleSort} title="Auto-sort">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

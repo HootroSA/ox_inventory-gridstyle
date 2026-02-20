@@ -126,7 +126,7 @@ function GridUtils.GetDimensions(invType, slots)
     local ratio = shared.slotratio or 1
     local cols = shared.gridwidth or 10
 
-    if slots and (invType == 'container' or invType == 'stash' or invType == 'temp') then
+    if slots and (invType == 'container' or invType == 'stash' or invType == 'temp' or invType == 'trunk' or invType == 'glovebox') then
         local dims = dimensionDefaults[invType]
         local w = dims and dims[1] or math.min(slots, cols)
         local h = math.ceil(slots / w) * ratio

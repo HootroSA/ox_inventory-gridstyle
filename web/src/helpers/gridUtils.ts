@@ -64,7 +64,7 @@ export function buildOccupancyGrid(
   }
 
   for (const item of items) {
-    if (!item.name || item.gridX === undefined || item.gridY === undefined) continue;
+    if (!item || !item.name || item.gridX === undefined || item.gridY === undefined) continue;
     if (excludeSlot !== undefined && item.slot === excludeSlot) continue;
 
     const size = getSlotEffectiveSize(item, itemSizes);

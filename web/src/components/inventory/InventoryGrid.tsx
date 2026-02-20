@@ -5,6 +5,7 @@ import InventorySlot from './InventorySlot';
 import { getTotalWeight } from '../../helpers';
 import { useAppSelector } from '../../store';
 import { useIntersection } from '../../hooks/useIntersection';
+import { getTypeIcon } from '../../helpers/getTypeIcon';
 
 const PAGE_SIZE = 30;
 
@@ -32,10 +33,13 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({ inventory, onHeaderMouseD
   }, [entry]);
   return (
     <>
-      <div className="slot-inventory-wrapper" style={{ pointerEvents: isBusy ? 'none' : 'auto' }}>
+      <div className="slot-inventory-wrapper" data-inv-type={inventory.type} style={{ pointerEvents: isBusy ? 'none' : 'auto' }}>
         <div>
           <div className={`slot-inventory-header${isLocked ? ' header--locked' : ''}`} onMouseDown={onHeaderMouseDown}>
             <div className="slot-header-left">
+              <div className="slot-header-icon-wrap">
+                {getTypeIcon(inventory.type)}
+              </div>
               <span className="slot-header-label">{inventory.label}</span>
             </div>
             {inventory.maxWeight !== undefined && inventory.maxWeight > 0 && (

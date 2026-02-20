@@ -46,12 +46,38 @@ export function saveBinding(hotbarSlot: number, item: Slot | null): void {
 export function reconcileHotbar(items: Slot[] | Record<string, Slot>): (number | null)[] {
   const itemsArray = Array.isArray(items) ? items : Object.values(items);
 
-  return cachedBindings.map((binding) => {
+  const seenSlots = new Set<number>();
+  for (let i = cachedBindings.length - 1; i >= 0; i--) {
+    const b = cachedBindings[i];
+    if (b) {
+      if (seenSlots.has(b.slotId)) {
+        cachedBindings[i] = null;
+      } else {
+        seenSlots.add(b.slotId);
+      }
+    }
+  }
+
+  let dirty = false;
+  const result = cachedBindings.map((binding, idx) => {
     if (!binding) return null;
 
     const match = itemsArray.find(
-      (i) => i.slot === binding.slotId && isSlotWithItem(i) && i.name === binding.itemName
+      (i) => i != null && i.slot === binding.slotId && isSlotWithItem(i) && i.name === binding.itemName
     );
-    return match ? match.slot : null;
+
+    if (!match) {
+      cachedBindings[idx] = null;
+      dirty = true;
+      return null;
+    }
+
+    return match.slot;
   }) as (number | null)[];
+
+  if (dirty) {
+    fetchNui('saveHotbar', { json: JSON.stringify([...cachedBindings]) });
+  }
+
+  return result;
 }

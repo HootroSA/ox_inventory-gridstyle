@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransitionGroup } from 'react-transition-group';
 import useNuiEvent from '../../hooks/useNuiEvent';
@@ -8,6 +8,7 @@ import { getItemUrl } from '../../helpers';
 import { SlotWithItem } from '../../typings';
 import { Items } from '../../store/items';
 import Fade from './transitions/Fade';
+import { getNotifyPosition, subscribeNotifyPosition, stacksUpward, NotifyPosition } from '../../helpers/notifyPosition';
 
 interface ItemNotificationProps {
   item: SlotWithItem;
@@ -27,30 +28,38 @@ export const useItemNotifications = () => {
 const ItemNotification = React.forwardRef(
   (props: { item: ItemNotificationProps; style?: React.CSSProperties }, ref: React.ForwardedRef<HTMLDivElement>) => {
     const slotItem = props.item.item;
+    const label = slotItem.metadata?.label || Items[slotItem.name]?.label || slotItem.name;
 
     return (
-      <div
-        className="item-notification-item-box"
-        style={{
-          backgroundImage: `url(${getItemUrl(slotItem) || 'none'}`,
-          ...props.style,
-        }}
-        ref={ref}
-      >
-        <div className="item-slot-wrapper">
-          <div className="item-notification-action-box">
-            <p>{props.item.text}</p>
-          </div>
-          <div className="inventory-slot-label-box">
-            <div className="inventory-slot-label-text">{slotItem.metadata?.label || Items[slotItem.name]?.label}</div>
-          </div>
+      <div className="item-notify" ref={ref} style={props.style}>
+        <div className="item-notify-image" style={{ backgroundImage: `url(${getItemUrl(slotItem) || 'none'})` }} />
+        <div className="item-notify-content">
+          <span className="item-notify-label">{label}</span>
+          <span className="item-notify-action">{props.item.text}</span>
         </div>
       </div>
     );
   }
 );
 
+const POSITION_STYLES: Record<NotifyPosition, React.CSSProperties> = {
+  'top-left': { top: '3vh', left: '3vh', alignItems: 'flex-start' },
+  'top-center': { top: '3vh', left: '50%', transform: 'translateX(-50%)', alignItems: 'center' },
+  'top-right': { top: '3vh', right: '3vh', alignItems: 'flex-end' },
+  'middle-left': { top: '50%', left: '3vh', transform: 'translateY(-50%)', alignItems: 'flex-start' },
+  'middle-right': { top: '50%', right: '3vh', transform: 'translateY(-50%)', alignItems: 'flex-end' },
+  'bottom-left': { bottom: '3vh', left: '3vh', alignItems: 'flex-start' },
+  'bottom-center': { bottom: '14vh', left: '50%', transform: 'translateX(-50%)', alignItems: 'center' },
+  'bottom-right': { bottom: '3vh', right: '3vh', alignItems: 'flex-end' },
+};
+
 export const ItemNotificationsProvider = ({ children }: { children: React.ReactNode }) => {
+  const [position, setPosition] = useState<NotifyPosition>(getNotifyPosition);
+
+  useEffect(() => {
+    return subscribeNotifyPosition(setPosition);
+  }, []);
+
   const queue = useQueue<{
     id: number;
     item: ItemNotificationProps;
@@ -73,11 +82,17 @@ export const ItemNotificationsProvider = ({ children }: { children: React.ReactN
     add({ item: item, text: count ? `${Locale[text]} ${count}x` : `${Locale[text]}` });
   });
 
+  const upward = stacksUpward(position);
+  const posStyle = POSITION_STYLES[position];
+
   return (
     <ItemNotificationsContext.Provider value={{ add }}>
       {children}
       {createPortal(
-        <TransitionGroup className="item-notification-container">
+        <TransitionGroup
+          className={`item-notify-container${upward ? ' item-notify-container--upward' : ''}`}
+          style={posStyle}
+        >
           {queue.values.map((notification, index) => (
             <Fade key={`item-notification-${index}`}>
               <ItemNotification item={notification.item} ref={notification.ref} />

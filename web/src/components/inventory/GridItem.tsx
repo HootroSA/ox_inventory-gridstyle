@@ -3,7 +3,7 @@ import { useDrag } from 'react-dnd';
 import { DragSource, Inventory, InventoryType, SlotWithItem } from '../../typings';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { store } from '../../store';
-import { setDragRotated, gridMoveSlots, assignHotbar, clearHotbar, selectPlayerItemCounts, selectSearchState, beginItemSearch, finishItemSearch, removePlayerItem } from '../../store/inventory';
+import { setDragRotated, gridMoveSlots, assignHotbar, clearHotbar, selectPlayerItemCounts, beginItemSearch, finishItemSearch, removePlayerItem } from '../../store/inventory';
 import { Items } from '../../store/items';
 import { getItemUrl, isSlotWithItem, canPurchaseItem, canCraftItem } from '../../helpers';
 import { getEffectiveDimensions, buildOccupancyGrid, findFirstFit, getItemSize, getSlotEffectiveSize, getWeaponEffectiveSize, isGridInventory } from '../../helpers/gridUtils';
@@ -30,11 +30,12 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
   const dispatch = useAppDispatch();
   const timerRef = useRef<number | null>(null);
   const isHovered = useRef(false);
-  const searchState = useAppSelector(selectSearchState);
-  const isSearching = searchState.searchingSlots.includes(item.slot);
+  const isSearching = useAppSelector((state) => state.inventory.searchState.searchingSlots.includes(item.slot));
   const isUnsearched = item.searched === false && !isSearching;
   const [wasRevealed, setWasRevealed] = React.useState(false);
-  const hotbarIndex = useAppSelector((state) => state.inventory.hotbar.indexOf(item.slot));
+  const hotbarIndex = useAppSelector((state) =>
+    inventoryType === 'player' ? state.inventory.hotbar.indexOf(item.slot) : -1
+  );
   const splitData = useAppSelector((state) => state.contextMenu);
 
   const activeSplit =
@@ -91,6 +92,12 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
           dispatch(clearHotbar(hotbarSlot));
           saveBinding(hotbarSlot, null);
         } else {
+          const hotbar = store.getState().inventory.hotbar;
+          for (let i = 0; i < hotbar.length; i++) {
+            if (hotbar[i] === item.slot && i !== hotbarSlot) {
+              saveBinding(i, null);
+            }
+          }
           dispatch(assignHotbar({ hotbarSlot, itemSlot: item.slot }));
           saveBinding(hotbarSlot, item);
         }
@@ -161,7 +168,7 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
 
       if (event.ctrlKey && inventoryType !== 'shop' && inventoryType !== 'crafting') {
         const { inventory: state } = store.getState();
-        const isLeft = inventoryType === state.leftInventory.type && state.leftInventory.items.some((i) => i.slot === item.slot);
+        const isLeft = inventoryType === state.leftInventory.type && state.leftInventory.items.some((i) => i != null && i.slot === item.slot);
         const isBackpack = inventoryType === 'backpack';
 
         let targetInv;
@@ -204,8 +211,8 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
           const moveCount = activeSplit ?? shiftHalf ?? item.count;
           const sourceInv = isLeft ? state.leftInventory : state.rightInventory;
           let maxSlot = 0;
-          for (const i of sourceInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
-          for (const i of targetInv.items) if (typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+          for (const i of sourceInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
+          for (const i of targetInv.items) if (i != null && typeof i.slot === 'number' && i.slot > maxSlot) maxSlot = i.slot;
           const uniqueToSlot = maxSlot + 1;
 
           dispatch(validateMove({
@@ -262,6 +269,8 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
   const ingredientCount = item.ingredients ? Object.keys(item.ingredients).length : 0;
   const durationSec = item.duration !== undefined ? (item.duration / 1000).toFixed(1) : null;
 
+  const itemRarity = Items[item.name]?.rarity;
+
   const itemClassName = [
     'grid-item',
     isShopItem && 'grid-item--shop',
@@ -270,6 +279,7 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
     isUnsearched && 'grid-item--unsearched',
     isSearching && 'grid-item--searching',
     wasRevealed && 'grid-item--revealing',
+    itemRarity && !isUnsearched && !isSearching && `grid-item--rarity-${itemRarity}`,
   ].filter(Boolean).join(' ');
 
   return (
@@ -310,6 +320,7 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
         </div>
       ) : (
         <>
+          {itemRarity && <div className="grid-item-rarity" />}
           <div
             className="grid-item-image"
             style={{
@@ -340,26 +351,29 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
             </div>
           ) : (
             <div className="grid-item-header">
-              <span className="grid-item-weight">
-                {item.weight > 0
-                  ? item.weight >= 1000
-                    ? `${(item.weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 1 })}kg`
-                    : `${item.weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`
-                  : ''}
-              </span>
-              {(() => {
-                const stackSize = Items[item.name]?.stackSize ?? item.stackSize;
-                if (activeSplit) {
-                  return <span className="grid-item-count">{`${activeSplit}/${item.count}`}</span>;
-                }
-                if (stackSize) {
-                  return <span className="grid-item-count">{`${item.count}/${stackSize}`}</span>;
-                }
-                if (item.count > 1) {
-                  return <span className="grid-item-count">{`${item.count}x`}</span>;
-                }
-                return null;
-              })()}
+              <span />
+              <div className="grid-item-header-right">
+                {(() => {
+                  const stackSize = Items[item.name]?.stackSize ?? item.stackSize;
+                  if (activeSplit) {
+                    return <span className="grid-item-count">{`${activeSplit}/${item.count}`}</span>;
+                  }
+                  if (stackSize) {
+                    return <span className="grid-item-count">{`${item.count}/${stackSize}`}</span>;
+                  }
+                  if (item.count > 1) {
+                    return <span className="grid-item-count">{`${item.count}x`}</span>;
+                  }
+                  return null;
+                })()}
+                <span className="grid-item-weight">
+                  {item.weight > 0
+                    ? item.weight >= 1000
+                      ? `${(item.weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 1 })}kg`
+                      : `${item.weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`
+                    : ''}
+                </span>
+              </div>
             </div>
           )}
 
@@ -396,10 +410,12 @@ const GridItem: React.FC<GridItemProps> = ({ item, inventoryType, inventoryId, i
             </div>
           ) : (
             <div className="grid-item-info">
-              {item.durability !== undefined && (
-                <WeightBar percent={item.durability} durability />
-              )}
               <div className="grid-item-label">{itemLabel}</div>
+              {item.durability !== undefined && (
+                <div className="grid-item-durability-wrap">
+                  <WeightBar percent={item.durability} durability />
+                </div>
+              )}
             </div>
           )}
         </>

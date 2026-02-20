@@ -17,8 +17,8 @@ export const gridSwapSlotsReducer: CaseReducer<
   const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
   const curTime = Math.floor(Date.now() / 1000);
 
-  const sourceIndex = sourceInventory.items.findIndex((i) => i.slot === fromSlot.slot);
-  const targetIndex = targetInventory.items.findIndex((i) => i.slot === toSlot.slot);
+  const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);
+  const targetIndex = targetInventory.items.findIndex((i) => i != null && i.slot === toSlot.slot);
 
   if (sourceIndex === -1 || targetIndex === -1) return;
 

@@ -756,6 +756,24 @@ const inventoryPresets: Record<string, any> = {
   glovebox: gloveboxInventory,
 };
 
+if (isEnvBrowser()) {
+  Locale['used'] = 'Used';
+  Locale['received'] = 'Received';
+  Locale['removed'] = 'Removed';
+  Locale['crafted'] = 'Crafted';
+  Locale['purchased'] = 'Purchased';
+}
+
+const notifyTestItems = [
+  { item: { slot: 99, name: 'water', weight: 500, count: 3 }, text: 'received', count: 3 },
+  { item: { slot: 99, name: 'bandage', weight: 100, count: 5 }, text: 'used', count: 1 },
+  { item: { slot: 99, name: 'medkit', weight: 1000, count: 1, metadata: { durability: 80 } }, text: 'crafted' },
+  { item: { slot: 99, name: 'burger', weight: 300, count: 2 }, text: 'purchased', count: 2 },
+  { item: { slot: 99, name: 'weapon_pistol', weight: 1500, count: 1, metadata: { durability: 45, serial: 'P-0000' } }, text: 'removed', count: 1 },
+  { item: { slot: 99, name: 'ammo_9mm', weight: 200, count: 30 }, text: 'received', count: 30 },
+];
+let notifyIndex = 0;
+
 debugData([
   {
     action: 'setupInventory',
@@ -836,7 +854,7 @@ const App: React.FC = () => {
     const { inventory: state } = store.getState();
     const slotId = state.hotbar[hotbarIndex - 1];
     if (slotId === null || slotId === undefined) return;
-    const item = state.leftInventory.items.find((i) => i.slot === slotId);
+    const item = state.leftInventory.items.find((i) => i != null && i.slot === slotId);
     if (!item || !isSlotWithItem(item)) return;
     fetchNui('useItem', slotId);
   });
@@ -864,6 +882,20 @@ const App: React.FC = () => {
             onClick={() => window.dispatchEvent(new MessageEvent('message', { data: { action: 'toggleHotbar' } }))}
           >
             hotbar
+          </button>
+          <button
+            className="dev-toolbar-btn"
+            onClick={() => {
+              const test = notifyTestItems[notifyIndex % notifyTestItems.length];
+              notifyIndex++;
+              window.dispatchEvent(
+                new MessageEvent('message', {
+                  data: { action: 'itemNotify', data: [test.item, test.text, test.count] },
+                })
+              );
+            }}
+          >
+            notify
           </button>
         </div>
       )}

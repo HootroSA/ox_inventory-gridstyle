@@ -35,7 +35,7 @@ const CraftingInventory: React.FC<Props> = ({ inventory, onHeaderMouseDown, isLo
 
       const { inventory: reduxState } = store.getState();
       const craftInv = reduxState.rightInventory;
-      const sourceSlot = craftInv.items.find((i) => i.slot === source.item.slot);
+      const sourceSlot = craftInv.items.find((i) => i != null && i.slot === source.item.slot);
       if (!sourceSlot || !isSlotWithItem(sourceSlot)) return;
 
       if (!canCraftItem(sourceSlot, craftInv.type)) return;
@@ -45,7 +45,7 @@ const CraftingInventory: React.FC<Props> = ({ inventory, onHeaderMouseDown, isLo
       const reserved: Record<string, number> = {};
       for (const q of reduxState.craftQueue) {
         if (q.status === 'done') continue;
-        const recipeSlot = craftInv.items.find((s) => s.slot === q.recipeSlot);
+        const recipeSlot = craftInv.items.find((s) => s != null && s.slot === q.recipeSlot);
         if (!recipeSlot || !isSlotWithItem(recipeSlot) || !recipeSlot.ingredients) continue;
         const remaining = q.totalCount - q.completedCount - q.failedCount;
         for (const [name, needed] of Object.entries(recipeSlot.ingredients)) {

@@ -65,7 +65,7 @@ export const inventorySlice = createSlice({
       state.shiftPressed = action.payload;
     },
     setContainerWeight: (state, action: PayloadAction<number>) => {
-      const container = state.leftInventory.items.find((item) => item.metadata?.container === state.rightInventory.id);
+      const container = state.leftInventory.items.find((item) => item != null && item.metadata?.container === state.rightInventory.id);
 
       if (!container) return;
 
@@ -99,10 +99,10 @@ export const inventorySlice = createSlice({
       state.hotbar = action.payload;
     },
     removePlayerItem: (state, action: PayloadAction<number>) => {
-      state.leftInventory.items = state.leftInventory.items.filter((i) => i.slot !== action.payload);
+      state.leftInventory.items = state.leftInventory.items.filter((i) => i != null && i.slot !== action.payload);
     },
     removeBackpackItem: (state, action: PayloadAction<number>) => {
-      state.backpackInventory.items = state.backpackInventory.items.filter((i) => i.slot !== action.payload);
+      state.backpackInventory.items = state.backpackInventory.items.filter((i) => i != null && i.slot !== action.payload);
     },
     setupBackpack: (state, action: PayloadAction<Inventory>) => {
       const curTime = Math.floor(Date.now() / 1000);
@@ -113,7 +113,7 @@ export const inventorySlice = createSlice({
     },
     setBackpackWeight: (state, action: PayloadAction<number>) => {
       const backpackItem = state.leftInventory.items.find(
-        (item) => item.metadata?.container === state.backpackInventory.id
+        (item) => item != null && item.metadata?.container === state.backpackInventory.id
       );
       if (backpackItem) backpackItem.weight = action.payload;
     },
@@ -201,7 +201,7 @@ export const inventorySlice = createSlice({
           ? state.backpackInventory
           : state.rightInventory;
 
-      sourceInv.items = sourceInv.items.filter((i) => i.slot !== componentSlot);
+      sourceInv.items = sourceInv.items.filter((i) => i != null && i.slot !== componentSlot);
 
       const targetInv =
         state.leftInventory.id === targetInvId
@@ -210,7 +210,7 @@ export const inventorySlice = createSlice({
           ? state.backpackInventory
           : state.rightInventory;
 
-      const weapon = targetInv.items.find((i) => i.slot === weaponSlot);
+      const weapon = targetInv.items.find((i) => i != null && i.slot === weaponSlot);
       if (weapon) {
         if (!weapon.metadata) weapon.metadata = {};
         if (!weapon.metadata.components) weapon.metadata.components = [];
@@ -224,7 +224,7 @@ export const inventorySlice = createSlice({
     },
     finishItemSearch: (state, action: PayloadAction<number>) => {
       state.searchState.searchingSlots = state.searchState.searchingSlots.filter((s) => s !== action.payload);
-      const item = state.rightInventory.items.find((i) => i.slot === action.payload);
+      const item = state.rightInventory.items.find((i) => i != null && i.slot === action.payload);
       if (item) item.searched = true;
     },
   },

@@ -44,6 +44,7 @@ export const Items: {
     width: 5,
     height: 2,
     weapon: true,
+    rarity: 'epic',
   },
   medkit: {
     name: 'medkit',
@@ -54,6 +55,7 @@ export const Items: {
     count: 0,
     width: 2,
     height: 2,
+    rarity: 'uncommon',
   },
   radio: {
     name: 'radio',
@@ -96,6 +98,7 @@ export const Items: {
     count: 0,
     width: 2,
     height: 3,
+    rarity: 'rare',
   },
   phone: {
     name: 'phone',

@@ -14,7 +14,7 @@ const InventoryHotbar: React.FC = () => {
 
   const hotbarItems = hotbar.map((slotId) => {
     if (slotId === null) return null;
-    const item = leftInventory.items.find((i) => i.slot === slotId);
+    const item = leftInventory.items.find((i) => i != null && i.slot === slotId);
     return item && isSlotWithItem(item) ? item : null;
   });
 
@@ -44,23 +44,17 @@ const InventoryHotbar: React.FC = () => {
                   <>
                     <div className="hotbar-slot-image" style={{ backgroundImage: `url(${getItemUrl(item)})` }} />
                     <div className="hotbar-slot-key">{index + 1}</div>
-                    <div className="hotbar-slot-meta">
-                      <span className="hotbar-slot-weight">
-                        {item.weight > 0
-                          ? item.weight >= 1000
-                            ? `${(item.weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 1 })}kg`
-                            : `${item.weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`
-                          : ''}
-                      </span>
-                      {item.count > 1 && <span className="hotbar-slot-count">{item.count}x</span>}
-                    </div>
+                    {item.count > 1 && (
+                      <div className="hotbar-slot-meta">
+                        <span className="hotbar-slot-count">{item.count}x</span>
+                      </div>
+                    )}
                     <div className="hotbar-slot-bottom">
                       {item.durability !== undefined && <WeightBar percent={item.durability} durability />}
                       <div className="hotbar-slot-label">
                         {item.metadata?.label || Items[item.name]?.label || item.name}
                       </div>
                     </div>
-                    <div className="hotbar-slot-glow" />
                   </>
                 ) : (
                   <div className="hotbar-slot-empty-num">{index + 1}</div>

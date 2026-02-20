@@ -146,6 +146,50 @@ By default, stackable items (`stack = true` or `stack` omitted) can stack infini
 
 When a stack limit is set, the inventory displays the current count and max (e.g., `12/15`) instead of just `12x`.
 
+## Item Rarity
+
+Items can have a rarity tier that adds visual indicators — a gradient overlay, rarity-colored hover glow, and a colored accent in the tooltip. Legendary items also get a subtle animated shimmer effect.
+
+### Setting rarity in the item definition
+
+Add a `rarity` field to any item in `data/items.lua`:
+
+```lua
+['armour'] = {
+    label = 'Bulletproof Vest',
+    weight = 3000,
+    width = 2,
+    height = 2,
+    stack = false,
+    rarity = 'rare',
+},
+
+},
+```
+Add a `rarity` field to any item in `data/weapons.lua`:
+
+```lua
+['weapon_assaultrifle_mk2'] = {
+    label = 'Assault Rifle Mk II',
+    weight = 4500,
+    width = 5,
+    height = 2,
+    rarity = 'legendary',
+},
+```
+
+### Rarity tiers
+
+| Tier | Color | 
+|------|-------|
+| `common` | Green | 
+| `uncommon` | Lime | 
+| `rare` | Blue | 
+| `epic` | Purple |
+| `legendary` | Gold | 
+
+Items without a `rarity` field have no rarity styling (default appearance). The rarity is also displayed in the item tooltip.
+
 ## Weapon Sizing
 
 Weapons in `data/weapons.lua` also require `width` and `height`. Weapons are typically wider than regular items and their size grows dynamically when attachments are added.
@@ -315,44 +359,92 @@ To create a new backpack, add both the item definition and the container propert
 
 ## Vehicle Inventories
 
-Vehicle trunks and gloveboxes have their own grid dimensions. The default grid sizes are:
+Vehicle trunks and gloveboxes are configured in `data/vehicles.lua` using `gridWidth`, `gridHeight`, and `maxWeight`. The grid dimensions directly control how big the inventory is — slots are derived automatically (`slots = gridWidth * gridHeight`).
 
-| Type | Width | Height |
-|------|-------|--------|
-| Trunk | 8 | 5 |
-| Glovebox | 5 | 2 |
+### Three-tier priority
 
-Vehicle capacity (slots and max weight) is configured per vehicle class in `data/vehicles.lua`. The format is `{slots, maxWeight}`:
+Vehicle storage uses a three-tier lookup: **per-model > per-class > fallback defaults**. This means you can set defaults for all sedans, then override a specific vehicle model if needed.
+
+### Configuration format
+
+Each vehicle class (0–20) gets a `{ gridWidth, gridHeight, maxWeight }` entry. Per-model overrides go in the `models` sub-table.
 
 ```lua
+-- data/vehicles.lua
 trunk = {
-    [0] = {21, 168000},     -- Compacts
-    [1] = {41, 328000},     -- Sedans
-    [2] = {51, 408000},     -- SUVs
-    [3] = {21, 168000},     -- Coupes
-    [4] = {21, 168000},     -- Muscle
-    [5] = {21, 168000},     -- Sports Classics
-    [6] = {21, 168000},     -- Sports
-    [7] = {21, 168000},     -- Super
-    [9] = {61, 488000},     -- Off-Road
-    [12] = {61, 488000},    -- Vans
-    -- Per-model overrides:
+    -- Per vehicle class (GTA class IDs)
+    [0]  = { gridWidth = 6, gridHeight = 3, maxWeight = 168000 },   -- Compact
+    [1]  = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },   -- Sedan
+    [2]  = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },   -- SUV
+    [3]  = { gridWidth = 6, gridHeight = 4, maxWeight = 248000 },   -- Coupe
+    [4]  = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },   -- Muscle
+    [5]  = { gridWidth = 6, gridHeight = 3, maxWeight = 248000 },   -- Sports Classic
+    [6]  = { gridWidth = 6, gridHeight = 3, maxWeight = 248000 },   -- Sports
+    [7]  = { gridWidth = 5, gridHeight = 2, maxWeight = 168000 },   -- Super
+    [8]  = { gridWidth = 3, gridHeight = 1, maxWeight = 40000 },    -- Motorcycle
+    [9]  = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },   -- Offroad
+    [10] = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },   -- Industrial
+    [11] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },   -- Utility
+    [12] = { gridWidth = 9, gridHeight = 6, maxWeight = 488000 },   -- Van
+    [17] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },   -- Service
+    [18] = { gridWidth = 7, gridHeight = 4, maxWeight = 328000 },   -- Emergency
+    [19] = { gridWidth = 8, gridHeight = 5, maxWeight = 408000 },   -- Military
+    [20] = { gridWidth = 10, gridHeight = 6, maxWeight = 488000 },  -- Commercial
+
+    -- Per-model overrides (takes priority over class)
     models = {
-        [`xa21`] = {11, 88000},
-    }
+        [`xa21`] = { gridWidth = 4, gridHeight = 2, maxWeight = 10000 },
+        [`sultan`] = { gridWidth = 5, gridHeight = 5, maxWeight = 88000 },
+    },
 },
 
 glovebox = {
-    [0] = {11, 88000},      -- Compacts
-    [1] = {11, 88000},      -- Sedans
-    -- ...
+    [0]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },    -- Compact
+    [1]  = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },    -- Sedan
+    [2]  = { gridWidth = 5, gridHeight = 2, maxWeight = 88000 },    -- SUV
+    -- ... other classes ...
+
     models = {
-        [`xa21`] = {11, 88000},
-    }
+        [`xa21`] = { gridWidth = 4, gridHeight = 2, maxWeight = 88000 },
+    },
 },
 ```
 
-To customize the grid dimensions for vehicle inventories, modify the defaults in `modules/inventory/gridutils.lua` and `web/src/helpers/gridConstants.ts`.
+### How it works
+
+1. When a player opens a trunk or glovebox, the system looks up the vehicle's spawn name (model) first
+2. If there's a match in `models`, those dimensions are used
+3. Otherwise it falls back to the vehicle's GTA class ID (0–20)
+4. Slots are calculated as `gridWidth * gridHeight` — you never need to set slots manually
+
+### Vehicle class IDs
+
+| ID | Class | ID | Class |
+|----|-------|----|-------|
+| 0 | Compact | 10 | Industrial |
+| 1 | Sedan | 11 | Utility |
+| 2 | SUV | 12 | Van |
+| 3 | Coupe | 14 | Boat |
+| 4 | Muscle | 15 | Helicopter |
+| 5 | Sports Classic | 16 | Plane |
+| 6 | Sports | 17 | Service |
+| 7 | Super | 18 | Emergency |
+| 8 | Motorcycle | 19 | Military |
+| 9 | Offroad | 20 | Commercial |
+
+### Storage flags
+
+The `Storage` table at the top of `data/vehicles.lua` controls special cases:
+
+```lua
+Storage = {
+    [`jester`] = 3,   -- 3 = trunk in the hood (front engine)
+    [`osiris`] = 1,    -- 1 = no trunk
+    [`pfister811`] = 1,
+    -- 0 = no storage at all
+    -- 2 = no glovebox
+}
+```
 
 ## Default Grid Dimensions
 

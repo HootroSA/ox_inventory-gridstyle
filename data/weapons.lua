@@ -52,6 +52,7 @@ return {
 			height = 2,
 			durability = 0.03,
 			ammoname = 'ammo-rifle2',
+			rarity = 'legendary',
 		},
 
 		['WEAPON_ASSAULTRIFLE_MK2'] = {

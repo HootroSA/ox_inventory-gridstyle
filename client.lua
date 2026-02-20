@@ -114,9 +114,10 @@ local function closeTrunk()
 		---@todo animation for vans?
 		Utils.PlayAnimAdvanced(0, 'anim@heists@fleeca_bank@scope_out@return_case', 'trevor_action', coords.x, coords.y, coords.z, 0.0, 0.0, GetEntityHeading(playerPed), 2.0, 2.0, 1000, 49, 0.25)
 
+		local entity = currentInventory.entity
+		local door = currentInventory.door
+
 		CreateThread(function()
-			local entity = currentInventory.entity
-			local door = currentInventory.door
 			Wait(900)
 
 			if type(door) == 'table' then
@@ -1038,7 +1039,7 @@ function client.closeInventory(server)
 		closeTrunk()
 		SendNUIMessage({ action = 'closeInventory' })
 		SetInterval(client.interval, 200)
-		Wait(200)
+		Wait(0)
 
 		if invOpen ~= nil then return end
 
@@ -1382,6 +1383,7 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			type = v.type or nil,
 			compatibleWeapons = v.compatibleWeapons or nil,
 			sizeModifier = v.sizeModifier or nil,
+			rarity = v.rarity or nil,
 		}
 	end
 

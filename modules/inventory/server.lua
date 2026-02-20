@@ -190,7 +190,13 @@ local function loadInventoryData(data, player, ignoreSecurityChecks)
                 dbId = data.id:sub(6)
             end
 
-            inventory = Inventory.Create(data.id, plate, data.type, storage[1], 0, storage[2], false, nil, nil, dbId)
+            local slots = storage.gridWidth * storage.gridHeight
+            inventory = Inventory.Create(data.id, plate, data.type, slots, 0, storage.maxWeight, false, nil, nil, dbId)
+
+			if inventory then
+				inventory.gridWidth = storage.gridWidth
+				inventory.gridHeight = storage.gridHeight
+			end
 		end
 	elseif data.type == 'policeevidence' then
 		inventory = Inventory.Create(data.id, locale('police_evidence'), data.type, 100, 0, 100000, false)
@@ -2291,6 +2297,27 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				playerInventory.backpackSlot = nil
 			end
 
+			if toInventory.type == 'backpack' and not sameInventory and fromInventory ~= playerInventory then
+				local itemDef = Items(fromData.name)
+				if itemDef then
+					local tempSlot = {
+						name = fromData.name,
+						count = data.count,
+						metadata = fromData.metadata or {},
+					}
+					local incomingWeight = Inventory.SlotWeight(itemDef, tempSlot)
+					local outgoing = 0
+					if toData and toData.name and toData.name ~= fromData.name then
+						outgoing = toData.weight or 0
+					end
+
+					local netChange = incomingWeight - outgoing
+					if netChange > 0 and playerInventory.weight + netChange > playerInventory.maxWeight then
+						return false, 'cannot_carry'
+					end
+				end
+			end
+
 			local container, containerItem = (not sameInventory and playerInventory.containerSlot) and (fromInventory.type == 'container' and fromInventory or toInventory)
 
 			if container then
@@ -2398,6 +2425,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				fromData.count -= data.count
 				local toSlotWeight = Inventory.SlotWeight(Items(toData.name), toData)
 				local totalWeight = toInventory.weight - toData.weight + toSlotWeight
+				local weightDelta = toSlotWeight - toData.weight
 
 				if fromInventory.type == 'container' or fromInventory.type == 'backpack' or sameInventory or totalWeight <= toInventory.maxWeight then
 					hookPayload.action = 'stack'

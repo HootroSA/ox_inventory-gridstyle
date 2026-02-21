@@ -92,5 +92,10 @@
   "crafting_bench": "Werkbank",
   "open_crafting_bench": "Werkbank öffnen",
   "not_enough_durability": "Haltbarkeit von %s reicht nicht mehr aus",
-  "storage": "Kofferraum"
+  "storage": "Kofferraum",
+  "rarity_common": "Gewöhnlich",
+  "rarity_uncommon": "Ungewöhnlich",
+  "rarity_rare": "Selten",
+  "rarity_epic": "Episch",
+  "rarity_legendary": "Legendär"
 }

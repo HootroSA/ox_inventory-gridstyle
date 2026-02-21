@@ -17,14 +17,6 @@ import React, { useMemo } from 'react';
 import { Menu, MenuItem } from '../utils/menu/Menu';
 import { setSplitAmount, closeContextMenu } from '../../store/contextMenu';
 
-const RARITY_LABELS: Record<string, string> = {
-  common: 'Common',
-  uncommon: 'Uncommon',
-  rare: 'Rare',
-  epic: 'Epic',
-  legendary: 'Legendary',
-};
-
 interface DataProps {
   action: string;
   component?: string;
@@ -229,7 +221,7 @@ const InventoryContext: React.FC = () => {
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                     </svg>
-                    {RARITY_LABELS[itemRarity] || itemRarity}
+                    {Locale[`rarity_${itemRarity}` as keyof typeof Locale] || itemRarity}
                   </span>
                 )}
                 <span className="ctx-weight-badge">

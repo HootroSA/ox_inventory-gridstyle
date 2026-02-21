@@ -5,6 +5,8 @@ import { fetchNui } from '../utils/fetchNui';
 export const onGive = (item: Slot) => {
   const {
     inventory: { itemAmount },
+    contextMenu: { splitAmount },
   } = store.getState();
-  fetchNui('giveItem', { slot: item.slot, count: itemAmount });
+  const count = splitAmount ?? itemAmount;
+  fetchNui('giveItem', { slot: item.slot, count });
 };

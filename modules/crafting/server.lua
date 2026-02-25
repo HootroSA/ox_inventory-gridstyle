@@ -68,7 +68,13 @@ end
 
 for id, data in pairs(lib.load('data.crafting') or {}) do createCraftingBench(data.name or id, data) end
 
----falls back to player coords if zones and points are both nil
+---@param bench table
+---@param index number
+---@return table?
+local function getCraftingGroups(bench, index)
+	return (shared.target and bench.zones) and bench.zones[index].groups or bench.groups
+end
+
 ---@param source number
 ---@param bench table
 ---@param index number
@@ -87,7 +93,7 @@ lib.callback.register('ox_inventory:openCraftingBench', function(source, id, ind
 	if not left then return end
 
 	if bench then
-		local groups = bench.groups
+		local groups = getCraftingGroups(bench, index)
 		local coords = getCraftingCoords(source, bench, index)
 
 		if not coords then return end
@@ -119,9 +125,9 @@ local TriggerEventHooks = require 'modules.hooks.server'
 ---@return table|nil craftedItem
 ---@return number|nil craftCount
 ---@return string|nil errorMsg
-local function validateAndPrepare(source, left, bench, recipeId)
-	local groups = bench.groups
-	local coords = getCraftingCoords(source, bench, bench.index or 1)
+local function validateAndPrepare(source, left, bench, recipeId, index)
+	local groups = getCraftingGroups(bench, index or 1)
+	local coords = getCraftingCoords(source, bench, index or 1)
 
 	if groups and not server.hasGroup(left, groups) then return nil end
 	if coords and #(GetEntityCoords(GetPlayerPed(source)) - coords) > 10 then return nil end
@@ -268,7 +274,7 @@ lib.callback.register('ox_inventory:craftItem', function(source, id, index, reci
 	if not left then return end
 	if not bench then return end
 
-	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
+	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId, index)
 	if not tbl or not recipe then return end
 
 	local targetInv, backpackItem = resolveTargetInventory(left, toType)
@@ -322,7 +328,7 @@ lib.callback.register('ox_inventory:startCraftQueueItem', function(source, id, i
 	if not left then return false end
 	if not bench then return false end
 
-	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
+	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId, index)
 	if not tbl or not recipe then return false end
 
 	local craftedItemWeight = (craftedItem.weight + (recipe.metadata?.weight or 0)) * craftCount

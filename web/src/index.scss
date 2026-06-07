@@ -1215,12 +1215,20 @@ button:active {
 
 .inventory-wrapper {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: flex-start;
   width: 100%;
   height: 100%;
-  padding-top: 10vh;
+  padding: 8vh 3vw 0;
   gap: 16px;
+}
+
+.inventory-right-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-height: 88vh;
 }
 
 .inventory-panel {
@@ -3723,8 +3731,8 @@ $inv-types: (
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  align-self: flex-start;
-  width: calc(var(--cell-size) * 2 + 22px);
+  align-self: flex-end;
+  width: calc(var(--cell-size) * 4 + 40px);
 }
 
 .equipment-panel-header {
@@ -3744,9 +3752,9 @@ $inv-types: (
 }
 
 .equipment-panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
   padding: 8px;
   border: 1px solid $border-subtle;
   border-top: 0;
@@ -3757,7 +3765,8 @@ $inv-types: (
 .equipment-slot {
   position: relative;
   width: 100%;
-  height: calc(var(--cell-size) * 1.12);
+  aspect-ratio: 1;
+  height: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

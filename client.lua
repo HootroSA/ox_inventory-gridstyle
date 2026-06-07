@@ -351,6 +351,7 @@ function client.openInventory(inv, data)
     })
 
     client.refreshEquipment()
+    client.startCharacterPreview()
 
     if not currentInventory.coords and not inv == 'container' then
         currentInventory.coords = GetEntityCoords(playerPed)
@@ -1034,6 +1035,7 @@ function client.closeInventory(server)
 		invOpen = nil
 		craftingActive = false
 		ClearPedTasks(cache.ped)
+		client.stopCharacterPreview()
 		client.closeBackpack()
 		TriggerServerEvent('ox_inventory:closeEquipment')
 		SetNuiFocus(false, false)
@@ -1953,6 +1955,37 @@ end)
 function client.refreshEquipment()
 	local equipment = lib.callback.await('ox_inventory:getEquipment', false)
 	SendNUIMessage({ action = 'setupEquipment', data = { equipment = equipment or {} } })
+end
+
+-- DayZ-style live character preview: a scripted camera framed on the player's
+-- ped, shown through the empty centre of the inventory UI.
+local previewCam
+
+function client.startCharacterPreview()
+	if previewCam then return end
+
+	local ped = cache.ped
+	local coords = GetEntityCoords(ped)
+	local heading = GetEntityHeading(ped)
+	local rad = math.rad(heading)
+	local fx, fy = -math.sin(rad), math.cos(rad)
+	local dist = 2.3
+
+	previewCam = CreateCameraWithParams('DEFAULT_SCRIPTED_CAMERA',
+		coords.x + fx * dist, coords.y + fy * dist, coords.z + 0.15,
+		0.0, 0.0, 0.0, 42.0, false, 0)
+
+	PointCamAtEntity(previewCam, ped, 0.0, 0.0, -0.15, true)
+	SetCamActive(previewCam, true)
+	RenderScriptCams(true, true, 400, true, true)
+end
+
+function client.stopCharacterPreview()
+	if not previewCam then return end
+
+	RenderScriptCams(false, true, 400, true, true)
+	DestroyCam(previewCam, false)
+	previewCam = nil
 end
 
 RegisterNUICallback('equipItem', function(data, cb)

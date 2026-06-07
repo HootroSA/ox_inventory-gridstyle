@@ -250,39 +250,38 @@ const Inventory: React.FC = () => {
             }}
             onMouseDown={() => setFocusedPanel('left')}
           >
-            <div className="left-panel-row">
-              <EquipmentSlots />
-              <LeftInventory
-                onHeaderMouseDown={handleLeftHeaderDown}
-                isLocked={leftDrag.isLocked}
-                onToggleLock={leftDrag.toggleLock}
-                onOpenInfo={() => setInfoVisible(true)}
-              />
-            </div>
+            <LeftInventory
+              onHeaderMouseDown={handleLeftHeaderDown}
+              isLocked={leftDrag.isLocked}
+              onToggleLock={leftDrag.toggleLock}
+              onOpenInfo={() => setInfoVisible(true)}
+            />
           </div>
-          {(hasBackpack || equipmentInventories.length > 0) && (
-            <div className="equipment-cargo-stack">
-              {hasBackpack && (
-                <div
-                  ref={backpackDrag.panelRef}
-                  className="inventory-panel inventory-panel--active equipment-cargo-section"
-                >
-                  <BackpackInventory />
-                </div>
-              )}
-              {equipmentInventories.map((inv) => (
-                <div key={inv.id} className="inventory-panel inventory-panel--active equipment-cargo-section">
-                  <GridInventory
-                    inventory={inv}
-                    onClose={() => fetchNui('unequipItem', { equipType: inv.equipType })}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-          <div
-            ref={rightDrag.panelRef}
-            className={`inventory-panel inventory-panel--right${hasRightInventory ? ' inventory-panel--active' : ''}${rightPositioned ? ' inventory-panel--positioned' : ''}${rightDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
+          <div className="inventory-right-side">
+            <EquipmentSlots />
+            {(hasBackpack || equipmentInventories.length > 0) && (
+              <div className="equipment-cargo-stack">
+                {hasBackpack && (
+                  <div
+                    ref={backpackDrag.panelRef}
+                    className="inventory-panel inventory-panel--active equipment-cargo-section"
+                  >
+                    <BackpackInventory />
+                  </div>
+                )}
+                {equipmentInventories.map((inv) => (
+                  <div key={inv.id} className="inventory-panel inventory-panel--active equipment-cargo-section">
+                    <GridInventory
+                      inventory={inv}
+                      onClose={() => fetchNui('unequipItem', { equipType: inv.equipType })}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div
+              ref={rightDrag.panelRef}
+              className={`inventory-panel inventory-panel--right${hasRightInventory ? ' inventory-panel--active' : ''}${rightPositioned ? ' inventory-panel--positioned' : ''}${rightDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
             style={rightPositioned ? {
               left: rightDrag.position!.x,
               top: rightDrag.position!.y,
@@ -299,6 +298,7 @@ const Inventory: React.FC = () => {
                 onToggleLock={rightDrag.toggleLock}
               />
             )}
+            </div>
           </div>
           <Tooltip />
           <InventoryContext />

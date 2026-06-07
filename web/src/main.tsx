@@ -8,6 +8,7 @@ import App from './App';
 import './index.scss';
 import './helpers/uiScale';
 import { ItemNotificationsProvider } from './components/utils/ItemNotifications';
+import ErrorBoundary from './components/utils/ErrorBoundary';
 import { isEnvBrowser } from './utils/misc';
 
 const root = document.getElementById('root');
@@ -25,7 +26,9 @@ createRoot(root!).render(
     <Provider store={store}>
       <DndProvider backend={TouchBackend} options={{ enableMouseEvents: true }}>
         <ItemNotificationsProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </ItemNotificationsProvider>
       </DndProvider>
     </Provider>

@@ -1959,44 +1959,35 @@ end
 
 -- DayZ-style live character preview.
 --
--- A scripted camera framed on the player's ped, shown through the empty centre
--- of the inventory. This composes correctly behind the focused NUI overlay,
--- unlike GivePedToPauseMenu (the pause-menu frontend hides the NUI and leaves
--- only the cursor). Tune `distance` / `fov` / `targetHeight` for framing.
-local previewCam
-local previewConfig = {
-	distance = 3.0,
-	fov = 50.0,
-	camHeight = 0.35,
-	targetHeight = 0.30,
-}
+-- Clone the player ped and render it on screen through the GTA frontend
+-- (empty, no background). The clone is hidden in the world and only drawn in
+-- the pause-menu ped viewport, composited above the game behind the NUI.
+local clonedPreviewPed
 
 function client.startCharacterPreview()
-	if previewCam then return end
+	if clonedPreviewPed then return end
 
 	local ped = cache.ped
-	local root = GetEntityCoords(ped)
-	local rad = math.rad(GetEntityHeading(ped))
-	local forwardX, forwardY = -math.sin(rad), math.cos(rad)
+	clonedPreviewPed = ClonePed(ped, GetEntityHeading(ped), false, false)
 
-	previewCam = CreateCameraWithParams('DEFAULT_SCRIPTED_CAMERA',
-		root.x + forwardX * previewConfig.distance,
-		root.y + forwardY * previewConfig.distance,
-		root.z + previewConfig.camHeight,
-		0.0, 0.0, 0.0,
-		previewConfig.fov, false, 0)
+	SetEntityCoordsNoOffset(clonedPreviewPed, GetEntityCoords(ped), false, false, false)
+	FreezeEntityPosition(clonedPreviewPed, true)
+	SetEntityInvincible(clonedPreviewPed, true)
+	SetEntityVisible(clonedPreviewPed, false, false)
 
-	PointCamAtCoord(previewCam, root.x, root.y, root.z + previewConfig.targetHeight)
-	SetCamActive(previewCam, true)
-	RenderScriptCams(true, true, 250, true, true)
+	ActivateFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, false, -1)
+	GivePedToPauseMenu(clonedPreviewPed, 2)
+	SetPauseMenuPedLighting(true)
+	SetPauseMenuPedSleepState(true)
 end
 
 function client.stopCharacterPreview()
-	if not previewCam then return end
+	if not clonedPreviewPed then return end
 
-	RenderScriptCams(false, true, 250, true, true)
-	DestroyCam(previewCam, false)
-	previewCam = nil
+	ClearPedInPauseMenu()
+	RestartFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, -1)
+	DeleteEntity(clonedPreviewPed)
+	clonedPreviewPed = nil
 end
 
 RegisterNUICallback('equipItem', function(data, cb)

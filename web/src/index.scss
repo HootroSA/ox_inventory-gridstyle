@@ -3732,7 +3732,7 @@ $inv-types: (
   flex-direction: column;
   flex-shrink: 0;
   align-self: flex-end;
-  width: calc(var(--cell-size) * 4 + 40px);
+  width: max-content;
 }
 
 .equipment-panel-header {
@@ -3753,8 +3753,8 @@ $inv-types: (
 
 .equipment-panel-body {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
+  grid-template-columns: repeat(4, 48px);
+  gap: 4px;
   padding: 8px;
   border: 1px solid $border-subtle;
   border-top: 0;
@@ -3764,9 +3764,8 @@ $inv-types: (
 
 .equipment-slot {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  height: auto;
+  width: 48px;
+  height: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3800,9 +3799,13 @@ $inv-types: (
   }
 }
 
+.equipment-slot-label {
+  display: none;
+}
+
 .equipment-slot-icon {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   color: $text-muted;
   opacity: 0.7;
   display: flex;
@@ -3816,9 +3819,9 @@ $inv-types: (
 .equipment-slot-image {
   position: absolute;
   top: 4px;
-  left: 0;
-  right: 0;
-  bottom: 16px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;

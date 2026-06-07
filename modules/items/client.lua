@@ -139,6 +139,18 @@ Item('phone', function(data, slot)
 	end
 end)
 
+-- Persists the ped's current appearance to illenium-appearance so worn clothing
+-- survives a relog (DayZ-style). Safe no-op if the resource isn't running.
+local function persistAppearance()
+	if GetResourceState('illenium-appearance') ~= 'started' then return end
+
+	local appearance = exports['illenium-appearance']:getPedAppearance(cache.ped)
+
+	if appearance then
+		TriggerServerEvent('illenium-appearance:server:saveAppearance', appearance)
+	end
+end
+
 Item('clothing', function(data, slot)
 	local metadata = slot.metadata
 
@@ -166,11 +178,13 @@ Item('clothing', function(data, slot)
 				local texture = GetPedPropTextureIndex(cache.ped, metadata.prop)
 
 				if metadata.drawable == prop and metadata.texture == texture then
-					return ClearPedProp(cache.ped, metadata.prop)
+					ClearPedProp(cache.ped, metadata.prop)
+					return persistAppearance()
 				end
 
 				-- { prop = 0, drawable = 2, texture = 1 } = grey beanie
 				SetPedPropIndex(cache.ped, metadata.prop, metadata.drawable, metadata.texture, false);
+				persistAppearance()
 			elseif metadata.component then
 				local drawable = GetPedDrawableVariation(cache.ped, metadata.component)
 				local texture = GetPedTextureVariation(cache.ped, metadata.component)
@@ -181,6 +195,7 @@ Item('clothing', function(data, slot)
 
 				-- { component = 4, drawable = 4, texture = 1 } = jeans w/ belt
 				SetPedComponentVariation(cache.ped, metadata.component, metadata.drawable, metadata.texture, 0);
+				persistAppearance()
 			end
 		end
 	end)

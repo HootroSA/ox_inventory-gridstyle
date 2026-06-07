@@ -131,24 +131,40 @@ export const findAvailableSlot = (item: Slot, data: ItemData, items: Slot[]) => 
   return stackableSlot || items.find((target) => target.name === undefined);
 };
 
+export const getAllInventories = (state: State): Inventory[] => [
+  state.leftInventory,
+  state.rightInventory,
+  state.backpackInventory,
+  ...state.equipmentInventories,
+];
+
+// Resolve an inventory by its id first (supports N equipment cargo containers),
+// falling back to the legacy type-based resolution for player/backpack/right.
+export const resolveInventory = (state: State, type: Inventory['type'], id?: string): Inventory => {
+  if (id) {
+    const byId = getAllInventories(state).find((inv) => inv.id !== '' && inv.id === id);
+    if (byId) return byId;
+  }
+  if (type === InventoryType.PLAYER) return state.leftInventory;
+  if (type === InventoryType.BACKPACK) return state.backpackInventory;
+  return state.rightInventory;
+};
+
 export const getTargetInventory = (
   state: State,
   sourceType: Inventory['type'],
-  targetType?: Inventory['type']
+  targetType?: Inventory['type'],
+  sourceId?: string,
+  targetId?: string
 ): { sourceInventory: Inventory; targetInventory: Inventory } => {
-  const resolve = (type: Inventory['type']) => {
-    if (type === InventoryType.PLAYER) return state.leftInventory;
-    if (type === InventoryType.BACKPACK) return state.backpackInventory;
-    return state.rightInventory;
-  };
-
   return {
-    sourceInventory: resolve(sourceType),
-    targetInventory: targetType
-      ? resolve(targetType)
-      : sourceType === InventoryType.PLAYER
-        ? state.rightInventory
-        : state.leftInventory,
+    sourceInventory: resolveInventory(state, sourceType, sourceId),
+    targetInventory:
+      targetType || targetId
+        ? resolveInventory(state, targetType ?? '', targetId)
+        : sourceType === InventoryType.PLAYER
+          ? state.rightInventory
+          : state.leftInventory,
   };
 };
 

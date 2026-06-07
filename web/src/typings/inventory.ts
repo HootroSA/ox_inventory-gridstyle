@@ -20,4 +20,5 @@ export type Inventory = {
   gridHeight?: number;
   searchable?: boolean;
   unsearchedCount?: number;
+  equipType?: string;
 };

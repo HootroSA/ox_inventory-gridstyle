@@ -9,12 +9,14 @@ export const gridSwapSlotsReducer: CaseReducer<
     fromType: Inventory['type'];
     toSlot: SlotWithItem;
     toType: Inventory['type'];
+    fromId?: string;
+    toId?: string;
     dragRotated?: boolean;
     rotateTarget?: boolean;
   }>
 > = (state, action) => {
-  const { fromSlot, fromType, toSlot, toType, dragRotated, rotateTarget } = action.payload;
-  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
+  const { fromSlot, fromType, toSlot, toType, fromId, toId, dragRotated, rotateTarget } = action.payload;
+  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType, fromId, toId);
   const curTime = Math.floor(Date.now() / 1000);
 
   const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);

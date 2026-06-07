@@ -445,10 +445,9 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 
 	if not item or not equipType then return false end
 
-	-- Container slots (backpack / pockets) reuse the existing container panels.
-	if equipType == 'backpack' or equipType == 'pockets' then
-		if not item.metadata or not item.metadata.container then return false end
-		if equipType == 'backpack' and not item.metadata.isBackpack then return false end
+	-- Backpack uses its own dedicated third panel.
+	if equipType == 'backpack' then
+		if not item.metadata or not item.metadata.isBackpack then return false end
 
 		if not item.metadata.equipType then
 			local metadata = copyMetadata(item.metadata)
@@ -456,7 +455,20 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 			Inventory.SetMetadata(playerInventory, slot, metadata)
 		end
 
-		return { open = equipType, slot = slot, isBackpack = item.metadata.isBackpack or false }
+		return { open = 'backpack', slot = slot }
+	end
+
+	-- Pockets is a pure container worn as a DayZ cargo section.
+	if equipType == 'pockets' then
+		if not item.metadata or not item.metadata.container then return false end
+
+		if not item.metadata.equipType then
+			local metadata = copyMetadata(item.metadata)
+			metadata.equipType = equipType
+			Inventory.SetMetadata(playerInventory, slot, metadata)
+		end
+
+		return { equipped = true, refreshEquipment = true }
 	end
 
 	-- Clothing slots apply a ped component (or prop) through illenium-appearance.
@@ -494,7 +506,7 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 		label = (md and md.label) or item.label,
 	})
 
-	return { equipped = true }
+	return { equipped = true, refreshEquipment = true }
 end)
 
 ---Removes an item from a DayZ-style equipment slot.
@@ -530,6 +542,88 @@ lib.callback.register('ox_inventory:unequipItem', function(source, data)
 	end
 
 	return true
+end)
+
+-- Worn cargo grid sizes per equipment type (DayZ-style sections).
+local EQUIP_GRID = {
+	vest = { 4, 2 },
+	jacket = { 4, 3 },
+	pants = { 5, 2 },
+	pockets = { 3, 2 },
+}
+
+-- Opens (creating if needed) the cargo container for a worn item and returns its payload.
+local function openWornContainer(source, playerInventory, item, equipType)
+	if not item.metadata or not item.metadata.container then return nil end
+
+	local container = Inventory(item.metadata.container)
+
+	if not container then
+		local size = item.metadata.size or { 10, 5000 }
+		container = Inventory.Create(item.metadata.container, item.label, 'container', size[1], 0, size[2], false)
+	end
+
+	if not container then return nil end
+
+	local grid = EQUIP_GRID[equipType] or { 4, 3 }
+	container.gridWidth = grid[1]
+	container.gridHeight = grid[2]
+
+	if not container.openedBy then container.openedBy = {} end
+	container.openedBy[source] = true
+
+	if not playerInventory.openEquipment then playerInventory.openEquipment = {} end
+	playerInventory.openEquipment[container.id] = true
+
+	return {
+		id = container.id,
+		label = (item.metadata and item.metadata.label) or item.label,
+		type = 'container',
+		slots = container.slots,
+		weight = container.weight,
+		maxWeight = container.maxWeight,
+		items = container.items,
+		gridWidth = container.gridWidth,
+		gridHeight = container.gridHeight,
+		equipType = equipType,
+	}
+end
+
+-- Builds all worn cargo sections for the player.
+local function buildEquipment(source, playerInventory)
+	local result = {}
+
+	for _, item in pairs(playerInventory.items) do
+		local equipType = item.metadata and item.metadata.equipType
+		if equipType and EQUIP_GRID[equipType] and item.metadata.container then
+			local payload = openWornContainer(source, playerInventory, item, equipType)
+			if payload then result[#result + 1] = payload end
+		end
+	end
+
+	return result
+end
+
+lib.callback.register('ox_inventory:getEquipment', function(source)
+	local playerInventory = Inventory(source)
+	if not playerInventory then return {} end
+	return buildEquipment(source, playerInventory)
+end)
+
+RegisterNetEvent('ox_inventory:closeEquipment', function()
+	local source = source
+	local playerInventory = Inventory(source)
+	if not playerInventory or not playerInventory.openEquipment then return end
+
+	for id in pairs(playerInventory.openEquipment) do
+		local container = Inventory(id)
+		if container then
+			if container.openedBy then container.openedBy[source] = nil end
+			if container.changed then Inventory.Save(container) end
+		end
+	end
+
+	playerInventory.openEquipment = nil
 end)
 
 ---@param netId number

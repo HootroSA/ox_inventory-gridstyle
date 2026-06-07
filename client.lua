@@ -350,6 +350,8 @@ function client.openInventory(inv, data)
         }
     })
 
+    client.refreshEquipment()
+
     if not currentInventory.coords and not inv == 'container' then
         currentInventory.coords = GetEntityCoords(playerPed)
     end
@@ -1033,6 +1035,7 @@ function client.closeInventory(server)
 		craftingActive = false
 		ClearPedTasks(cache.ped)
 		client.closeBackpack()
+		TriggerServerEvent('ox_inventory:closeEquipment')
 		SetNuiFocus(false, false)
 		SetNuiFocusKeepInput(false)
 		Utils.blurOut()
@@ -1946,16 +1949,24 @@ RegisterNUICallback('closeBackpack', function(_, cb)
 end)
 
 -- DayZ-style equipment slots ------------------------------------------------
+-- Fetches all worn cargo sections from the server and hands them to the NUI.
+function client.refreshEquipment()
+	local equipment = lib.callback.await('ox_inventory:getEquipment', false)
+	SendNUIMessage({ action = 'setupEquipment', data = { equipment = equipment or {} } })
+end
+
 RegisterNUICallback('equipItem', function(data, cb)
 	local result = lib.callback.await('ox_inventory:equipItem', false, data)
 
 	if type(result) == 'table' then
 		if result.open == 'backpack' then
 			client.openBackpack(result.slot)
-		elseif result.open == 'pockets' then
-			client.openInventory('container', result.slot)
 		elseif result.error then
 			lib.notify({ type = 'error', description = locale(result.error) })
+		end
+
+		if result.refreshEquipment then
+			client.refreshEquipment()
 		end
 	end
 
@@ -1963,7 +1974,9 @@ RegisterNUICallback('equipItem', function(data, cb)
 end)
 
 RegisterNUICallback('unequipItem', function(data, cb)
-	cb(lib.callback.await('ox_inventory:unequipItem', false, data) or false)
+	local result = lib.callback.await('ox_inventory:unequipItem', false, data)
+	client.refreshEquipment()
+	cb(result or false)
 end)
 
 local function persistEquippedAppearance()

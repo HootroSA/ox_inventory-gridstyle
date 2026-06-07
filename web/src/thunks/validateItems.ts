@@ -10,6 +10,8 @@ export const validateMove = createAsyncThunk(
       fromType: string;
       toSlot: number;
       toType: string;
+      fromId?: string;
+      toId?: string;
       count: number;
       toGridX?: number;
       toGridY?: number;

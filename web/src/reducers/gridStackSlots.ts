@@ -9,11 +9,13 @@ export const gridStackSlotsReducer: CaseReducer<
     fromType: Inventory['type'];
     toSlot: SlotWithItem;
     toType: Inventory['type'];
+    fromId?: string;
+    toId?: string;
     count: number;
   }>
 > = (state, action) => {
-  const { fromSlot, fromType, toSlot, toType, count } = action.payload;
-  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
+  const { fromSlot, fromType, toSlot, toType, fromId, toId, count } = action.payload;
+  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType, fromId, toId);
   const pieceWeight = fromSlot.weight / fromSlot.count;
 
   const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);

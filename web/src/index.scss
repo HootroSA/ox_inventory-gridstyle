@@ -3835,3 +3835,20 @@ $inv-types: (
   text-overflow: ellipsis;
   padding-bottom: 2px;
 }
+
+/* DayZ equipment cargo sections (multiple worn containers open at once) */
+.equipment-cargo-stack {
+  position: fixed;
+  top: 9vh;
+  right: 2vw;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 82vh;
+  overflow-y: auto;
+  z-index: 60;
+}
+
+.equipment-cargo-section {
+  width: max-content;
+}

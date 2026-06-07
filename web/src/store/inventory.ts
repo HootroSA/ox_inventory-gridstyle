@@ -26,6 +26,7 @@ const initialState: State = {
   leftInventory: { ...emptyInventory },
   rightInventory: { ...emptyInventory },
   backpackInventory: { ...emptyInventory },
+  equipmentInventories: [],
   additionalMetadata: new Array(),
   itemAmount: 0,
   shiftPressed: false,
@@ -110,6 +111,13 @@ export const inventorySlice = createSlice({
     },
     closeBackpack: (state) => {
       state.backpackInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
+    },
+    setupEquipment: (state, action: PayloadAction<Inventory[]>) => {
+      const curTime = Math.floor(Date.now() / 1000);
+      state.equipmentInventories = (action.payload || []).map((inv) => setupGridInventory(inv, curTime));
+    },
+    closeEquipment: (state) => {
+      state.equipmentInventories = [];
     },
     setBackpackWeight: (state, action: PayloadAction<number>) => {
       const backpackItem = state.leftInventory.items.find(
@@ -240,6 +248,7 @@ export const inventorySlice = createSlice({
         leftInventory: current(state.leftInventory),
         rightInventory: current(state.rightInventory),
         backpackInventory: current(state.backpackInventory),
+        equipmentInventories: current(state.equipmentInventories),
       };
     });
     builder.addMatcher(isNonCraftingFulfilled, (state) => {
@@ -251,6 +260,9 @@ export const inventorySlice = createSlice({
         state.rightInventory = state.history.rightInventory;
         if (state.history.backpackInventory) {
           state.backpackInventory = state.history.backpackInventory;
+        }
+        if (state.history.equipmentInventories) {
+          state.equipmentInventories = state.history.equipmentInventories;
         }
       }
       state.isBusy = false;
@@ -280,6 +292,8 @@ export const {
   removeBackpackItem,
   setupBackpack,
   closeBackpack,
+  setupEquipment,
+  closeEquipment,
   setBackpackWeight,
   addToCraftQueue,
   updateCraftQueueItem,
@@ -295,6 +309,7 @@ export const {
 export const selectLeftInventory = (state: RootState) => state.inventory.leftInventory;
 export const selectRightInventory = (state: RootState) => state.inventory.rightInventory;
 export const selectBackpackInventory = (state: RootState) => state.inventory.backpackInventory;
+export const selectEquipmentInventories = (state: RootState) => state.inventory.equipmentInventories;
 export const selectItemAmount = (state: RootState) => state.inventory.itemAmount;
 export const selectIsBusy = (state: RootState) => state.inventory.isBusy;
 export const selectDragRotated = (state: RootState) => state.inventory.dragRotated;

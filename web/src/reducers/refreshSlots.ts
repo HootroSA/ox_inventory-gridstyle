@@ -40,7 +40,13 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
     Object.values(action.payload.items)
       .filter((data) => !!data)
       .forEach((data) => {
-        const targetInventory = data.inventory
+        const equipmentMatch = data.inventory
+          ? state.equipmentInventories.find((inv) => inv.id !== '' && inv.id === data.inventory)
+          : undefined;
+
+        const targetInventory = equipmentMatch
+          ? equipmentMatch
+          : data.inventory
           ? data.inventory === InventoryType.PLAYER || data.inventory === state.leftInventory.id
             ? state.leftInventory
             : data.inventory === InventoryType.BACKPACK || (state.backpackInventory.id && data.inventory === state.backpackInventory.id)
@@ -49,7 +55,8 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
           : state.leftInventory;
 
         const invKey = targetInventory === state.leftInventory ? 'left'
-          : targetInventory === state.backpackInventory ? 'backpack' : 'right';
+          : targetInventory === state.backpackInventory ? 'backpack'
+          : equipmentMatch ? `equip:${equipmentMatch.id}` : 'right';
 
         data.item.durability = itemDurability(data.item.metadata, curTime);
 

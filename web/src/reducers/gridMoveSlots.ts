@@ -8,6 +8,8 @@ export const gridMoveSlotsReducer: CaseReducer<
     fromSlot: SlotWithItem;
     fromType: Inventory['type'];
     toType: Inventory['type'];
+    fromId?: string;
+    toId?: string;
     toSlotId: number;
     count: number;
     toGridX: number;
@@ -15,8 +17,8 @@ export const gridMoveSlotsReducer: CaseReducer<
     rotated: boolean;
   }>
 > = (state, action) => {
-  const { fromSlot, fromType, toType, toSlotId, count, toGridX, toGridY, rotated } = action.payload;
-  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
+  const { fromSlot, fromType, toType, fromId, toId, toSlotId, count, toGridX, toGridY, rotated } = action.payload;
+  const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType, fromId, toId);
   const pieceWeight = fromSlot.weight / fromSlot.count;
   const curTime = Math.floor(Date.now() / 1000);
   const sourceIndex = sourceInventory.items.findIndex((i) => i != null && i.slot === fromSlot.slot);

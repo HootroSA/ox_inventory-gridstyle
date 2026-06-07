@@ -5,7 +5,7 @@ import { DragSource } from '../../typings/dnd';
 import GridCell from './GridCell';
 import GridItem from './GridItem';
 import GridGhostOverlay from './GridGhostOverlay';
-import { getTotalWeight, isSlotWithItem, canStack } from '../../helpers';
+import { getTotalWeight, isSlotWithItem, canStack, resolveInventory } from '../../helpers';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { store } from '../../store';
 import {
@@ -360,17 +360,14 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
       const isLocalMove = source.inventoryId === inventory.id;
 
       const { inventory: reduxState } = store.getState();
-      const sourceInv =
-        source.inventoryId === reduxState.leftInventory.id
-          ? reduxState.leftInventory
-          : source.inventoryId === reduxState.backpackInventory.id
-          ? reduxState.backpackInventory
-          : reduxState.rightInventory;
+      const sourceInv = resolveInventory(reduxState, source.inventory, source.inventoryId);
       const sourceItem = sourceInv.items.find((i) => i != null && i.slot === source.item.slot);
       if (!sourceItem || !isSlotWithItem(sourceItem)) return;
 
       const sourceType = sourceInv.type;
       const targetType = inventory.type;
+      const sourceId = sourceInv.id;
+      const targetId = inventory.id;
 
       const meta = (sourceItem as SlotWithItem).metadata;
       if (targetType === 'backpack' && meta?.container) return;
@@ -476,6 +473,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
               fromType: sourceType,
               toSlot: cursorTarget.slot,
               toType: targetType,
+              fromId: sourceId,
+              toId: targetId,
               count: stackCount,
               toGridX: cursorTarget.gridX ?? anchorX,
               toGridY: cursorTarget.gridY ?? anchorY,
@@ -488,6 +487,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
               fromType: sourceType,
               toSlot: cursorTarget,
               toType: targetType,
+              fromId: sourceId,
+              toId: targetId,
               count: stackCount,
             })
           );
@@ -517,6 +518,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             fromType: sourceType,
             toSlot: toSlotNum,
             toType: targetType,
+            fromId: sourceId,
+            toId: targetId,
             count: moveCount,
             toGridX: anchorX,
             toGridY: anchorY,
@@ -529,6 +532,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             fromSlot: sourceItem,
             fromType: sourceType,
             toType: targetType,
+            fromId: sourceId,
+            toId: targetId,
             toSlotId: toSlotNum,
             count: moveCount,
             toGridX: anchorX,
@@ -571,6 +576,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
                 fromType: sourceType,
                 toSlot: targetItem.slot,
                 toType: targetType,
+                fromId: sourceId,
+                toId: targetId,
                 count: sourceItem.count,
                 toGridX: targetItem.gridX ?? anchorX,
                 toGridY: targetItem.gridY ?? anchorY,
@@ -584,6 +591,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
                 fromType: sourceType,
                 toSlot: targetItem,
                 toType: targetType,
+                fromId: sourceId,
+                toId: targetId,
                 dragRotated: dragRotated,
                 rotateTarget: swapResult.rotateTarget,
               })

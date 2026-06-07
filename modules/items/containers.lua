@@ -111,6 +111,23 @@ setContainerProperties('pockets', {
 	maxWeight = 3000,
 })
 
+-- DayZ-style worn clothing with cargo. Each opens its own grid section in the
+-- equipment panel when worn (vest = plate carrier, jacket, pants = cargo pants).
+setContainerProperties('vest', {
+	slots = 8,
+	maxWeight = 6000,
+})
+
+setContainerProperties('jacket', {
+	slots = 12,
+	maxWeight = 8000,
+})
+
+setContainerProperties('pants', {
+	slots = 10,
+	maxWeight = 7000,
+})
+
 setBackpackProperties('backpack_small', {
 	slots = 10,
 	maxWeight = 5000,

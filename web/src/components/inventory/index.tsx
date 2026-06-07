@@ -5,7 +5,8 @@ import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { store } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setupInventory, restoreHotbar, selectLeftInventory, selectRightInventory, selectBackpackInventory, setupBackpack, closeBackpack, removePlayerItem, removeBackpackItem, clearCraftQueue } from '../../store/inventory';
+import { refreshSlots, setAdditionalMetadata, setupInventory, restoreHotbar, selectLeftInventory, selectRightInventory, selectBackpackInventory, selectEquipmentInventories, setupBackpack, closeBackpack, setupEquipment, closeEquipment, removePlayerItem, removeBackpackItem, clearCraftQueue } from '../../store/inventory';
+import GridInventory from './GridInventory';
 import { reconcileHotbar } from '../../helpers/hotbarPersistence';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
@@ -40,6 +41,7 @@ const Inventory: React.FC = () => {
   }, [rightInventory.type, rightInventory.id, rightInventory.items]);
 
   const backpackInventory = useAppSelector(selectBackpackInventory);
+  const equipmentInventories = useAppSelector(selectEquipmentInventories);
   const hasBackpack = useMemo(() =>
     backpackInventory.type === 'backpack' && backpackInventory.id !== '',
     [backpackInventory.type, backpackInventory.id]
@@ -111,6 +113,7 @@ const Inventory: React.FC = () => {
       dispatch(closeContextMenu());
       dispatch(closeTooltip());
       dispatch(clearCraftQueue());
+      dispatch(closeEquipment());
     });
   });
   useExitListener(setInventoryVisible);
@@ -152,6 +155,11 @@ const Inventory: React.FC = () => {
     dispatch(setupBackpack(data.backpackInventory));
   });
   useNuiEvent('closeBackpack', () => dispatch(closeBackpack()));
+
+  useNuiEvent<{ equipment: InventoryProps[] }>('setupEquipment', (data) => {
+    dispatch(setupEquipment(data.equipment || []));
+  });
+  useNuiEvent('closeEquipment', () => dispatch(closeEquipment()));
 
   useNuiEvent('displayMetadata', (data: Array<{ metadata: string; value: string }>) => {
     dispatch(setAdditionalMetadata(data));
@@ -288,6 +296,18 @@ const Inventory: React.FC = () => {
               />
             )}
           </div>
+          {equipmentInventories.length > 0 && (
+            <div className="equipment-cargo-stack">
+              {equipmentInventories.map((inv) => (
+                <div key={inv.id} className="inventory-panel inventory-panel--active equipment-cargo-section">
+                  <GridInventory
+                    inventory={inv}
+                    onClose={() => fetchNui('unequipItem', { equipType: inv.equipType })}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
           <Tooltip />
           <InventoryContext />
         </div>

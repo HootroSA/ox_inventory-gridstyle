@@ -100,5 +100,12 @@
   "rarity_uncommon": "Neobično",
   "rarity_rare": "Rijetko",
   "rarity_epic": "Epsko",
-  "rarity_legendary": "Legendarno"
+  "rarity_legendary": "Legendarno",
+  "ui_equip_backpack": "Torba",
+  "ui_equip_top": "Majica / Jakna",
+  "ui_equip_vest": "Prsluk",
+  "ui_equip_pockets": "Džepovi",
+  "cannot_equip": "Ne možeš to opremiti ovdje",
+  "equipped_item": "Opremio si %s",
+  "unequipped_item": "Skinuo si %s"
 }

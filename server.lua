@@ -409,6 +409,106 @@ RegisterNetEvent('ox_inventory:closeBackpack', function()
 	playerInventory.backpackSlot = nil
 end)
 
+-- DayZ-style equipment slots ------------------------------------------------
+-- Clothing equipment types map to GTA ped component ids.
+local EQUIP_COMPONENTS = { top = 11, vest = 9 }
+
+local function copyMetadata(metadata)
+	local copy = {}
+	if metadata then
+		for k, v in pairs(metadata) do copy[k] = v end
+	end
+	return copy
+end
+
+local function clearEquipped(playerInventory, equipType, exceptSlot)
+	for slotId, item in pairs(playerInventory.items) do
+		if slotId ~= exceptSlot and item.metadata and item.metadata.equipType == equipType then
+			local metadata = copyMetadata(item.metadata)
+			metadata.equipType = nil
+			Inventory.SetMetadata(playerInventory, slotId, metadata)
+		end
+	end
+end
+
+---Equips an item from the player inventory into a DayZ-style equipment slot.
+---@param data { slot: number, equipType: string }
+lib.callback.register('ox_inventory:equipItem', function(source, data)
+	local playerInventory = Inventory(source)
+	if not playerInventory then return false end
+
+	local slot = data and data.slot
+	local equipType = data and data.equipType
+	local item = slot and playerInventory.items[slot]
+
+	if not item or not equipType then return false end
+
+	-- Container slots (backpack / pockets) reuse the existing container panels.
+	if equipType == 'backpack' or equipType == 'pockets' then
+		if not item.metadata or not item.metadata.container then return false end
+		if equipType == 'backpack' and not item.metadata.isBackpack then return false end
+
+		if not item.metadata.equipType then
+			local metadata = copyMetadata(item.metadata)
+			metadata.equipType = equipType
+			Inventory.SetMetadata(playerInventory, slot, metadata)
+		end
+
+		return { open = equipType, slot = slot, isBackpack = item.metadata.isBackpack or false }
+	end
+
+	-- Clothing slots apply a ped component through illenium-appearance.
+	local component = EQUIP_COMPONENTS[equipType]
+	if not component then return false end
+	if not item.metadata or item.metadata.component ~= component then return false end
+
+	clearEquipped(playerInventory, equipType, slot)
+
+	local metadata = copyMetadata(item.metadata)
+	metadata.equipType = equipType
+	Inventory.SetMetadata(playerInventory, slot, metadata)
+
+	TriggerClientEvent('ox_inventory:applyClothing', source, {
+		component = component,
+		drawable = item.metadata.drawable,
+		texture = item.metadata.texture or 0,
+		label = item.metadata.label or item.label,
+	})
+
+	return { equipped = true }
+end)
+
+---Removes an item from a DayZ-style equipment slot.
+---@param data { equipType: string }
+lib.callback.register('ox_inventory:unequipItem', function(source, data)
+	local playerInventory = Inventory(source)
+	if not playerInventory then return false end
+
+	local equipType = data and data.equipType
+	if not equipType then return false end
+
+	local found = false
+
+	for slotId, item in pairs(playerInventory.items) do
+		if item.metadata and item.metadata.equipType == equipType then
+			local metadata = copyMetadata(item.metadata)
+			metadata.equipType = nil
+			Inventory.SetMetadata(playerInventory, slotId, metadata)
+			found = true
+		end
+	end
+
+	if not found then return false end
+
+	if EQUIP_COMPONENTS[equipType] then
+		TriggerClientEvent('ox_inventory:removeClothing', source, { component = EQUIP_COMPONENTS[equipType] })
+	elseif equipType == 'backpack' or equipType == 'pockets' then
+		TriggerClientEvent('ox_inventory:equipmentClosePanel', source, { equipType = equipType })
+	end
+
+	return true
+end)
+
 ---@param netId number
 lib.callback.register('ox_inventory:isVehicleATrailer', function(source, netId)
 	local entity = NetworkGetEntityFromNetworkId(netId)

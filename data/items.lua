@@ -160,6 +160,51 @@ return {
 		consume = 0
 	},
 
+	-- DayZ-style equipment items ------------------------------------------------
+	-- Small always-carried container, equipped into the "Džepovi" (Pockets) slot.
+	['pockets'] = {
+		label = 'Pockets',
+		weight = 100,
+		width = 1,
+		height = 1,
+		stack = false,
+		close = false,
+		consume = 0
+	},
+
+	-- Worn clothing equipped into the "Majica / Jakna" (Top) slot (ped component 11).
+	-- Create the item with metadata { component = 11, drawable = <id>, texture = <id> }
+	-- so it can be applied to the ped through illenium-appearance.
+	['jacket'] = {
+		label = 'Jacket',
+		weight = 800,
+		width = 2,
+		height = 2,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 1500
+		}
+	},
+
+	-- Worn clothing equipped into the "Prsluk" (Vest) slot (ped component 9).
+	-- Create the item with metadata { component = 9, drawable = <id>, texture = <id> }.
+	['vest'] = {
+		label = 'Vest',
+		weight = 1500,
+		width = 2,
+		height = 2,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 2000
+		}
+	},
+
 	['identification'] = {
 		label = 'Identification',
 		width = 1,

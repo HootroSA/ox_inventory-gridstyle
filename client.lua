@@ -1945,6 +1945,59 @@ RegisterNUICallback('closeBackpack', function(_, cb)
 	cb(1)
 end)
 
+-- DayZ-style equipment slots ------------------------------------------------
+RegisterNUICallback('equipItem', function(data, cb)
+	local result = lib.callback.await('ox_inventory:equipItem', false, data)
+
+	if type(result) == 'table' then
+		if result.open == 'backpack' then
+			client.openBackpack(result.slot)
+		elseif result.open == 'pockets' then
+			client.openInventory('container', result.slot)
+		end
+	end
+
+	cb(result or false)
+end)
+
+RegisterNUICallback('unequipItem', function(data, cb)
+	cb(lib.callback.await('ox_inventory:unequipItem', false, data) or false)
+end)
+
+local function persistEquippedAppearance()
+	if GetResourceState('illenium-appearance') ~= 'started' then return end
+
+	local appearance = exports['illenium-appearance']:getPedAppearance(cache.ped)
+
+	if appearance then
+		TriggerServerEvent('illenium-appearance:server:saveAppearance', appearance)
+	end
+end
+
+RegisterNetEvent('ox_inventory:applyClothing', function(data)
+	if not data or not data.component then return end
+
+	SetPedComponentVariation(cache.ped, data.component, data.drawable or 0, data.texture or 0, 0)
+	persistEquippedAppearance()
+
+	if data.label then
+		lib.notify({ description = locale('equipped_item', data.label) })
+	end
+end)
+
+RegisterNetEvent('ox_inventory:removeClothing', function(data)
+	if not data or not data.component then return end
+
+	SetPedComponentVariation(cache.ped, data.component, 0, 0, 0)
+	persistEquippedAppearance()
+end)
+
+RegisterNetEvent('ox_inventory:equipmentClosePanel', function(data)
+	if data and data.equipType == 'backpack' then
+		client.closeBackpack()
+	end
+end)
+
 lib.callback.register('ox_inventory:startCrafting', function(id, recipe)
 	recipe = CraftingBenches[id].items[recipe]
 

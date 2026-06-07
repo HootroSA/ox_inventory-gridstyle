@@ -105,6 +105,12 @@ setContainerProperties('pizzabox', {
 	whitelist = { 'pizza' }
 })
 
+-- DayZ-style pockets: a small always-carried container for items like bandages.
+setContainerProperties('pockets', {
+	slots = 6,
+	maxWeight = 3000,
+})
+
 setBackpackProperties('backpack_small', {
 	slots = 10,
 	maxWeight = 5000,

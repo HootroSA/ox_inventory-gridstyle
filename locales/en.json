@@ -100,5 +100,12 @@
   "rarity_uncommon": "Uncommon",
   "rarity_rare": "Rare",
   "rarity_epic": "Epic",
-  "rarity_legendary": "Legendary"
+  "rarity_legendary": "Legendary",
+  "ui_equip_backpack": "Backpack",
+  "ui_equip_top": "Shirt / Jacket",
+  "ui_equip_vest": "Vest",
+  "ui_equip_pockets": "Pockets",
+  "cannot_equip": "You can't equip that here",
+  "equipped_item": "Equipped %s",
+  "unequipped_item": "Removed %s"
 }

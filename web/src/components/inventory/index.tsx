@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { batch } from 'react-redux';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { store } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setupInventory, restoreHotbar, selectRightInventory, selectBackpackInventory, setupBackpack, closeBackpack, removePlayerItem, removeBackpackItem, clearCraftQueue } from '../../store/inventory';
+import { refreshSlots, setAdditionalMetadata, setupInventory, restoreHotbar, selectLeftInventory, selectRightInventory, selectBackpackInventory, setupBackpack, closeBackpack, removePlayerItem, removeBackpackItem, clearCraftQueue } from '../../store/inventory';
 import { reconcileHotbar } from '../../helpers/hotbarPersistence';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
@@ -13,6 +13,7 @@ import { DragSource } from '../../typings';
 import RightInventory from './RightInventory';
 import LeftInventory from './LeftInventory';
 import BackpackInventory from './BackpackInventory';
+import EquipmentSlots from './EquipmentSlots';
 import Tooltip from '../utils/Tooltip';
 import { closeTooltip } from '../../store/tooltip';
 import InventoryContext from './InventoryContext';
@@ -29,6 +30,7 @@ const Inventory: React.FC = () => {
   const [infoVisible, setInfoVisible] = useState(false);
   const [focusedPanel, setFocusedPanel] = useState<'left' | 'right'>('left');
   const dispatch = useAppDispatch();
+  const leftInventory = useAppSelector(selectLeftInventory);
   const rightInventory = useAppSelector(selectRightInventory);
   const hasRightInventory = useMemo(() => {
     if (rightInventory.type === '' || rightInventory.id === '') return false;
@@ -42,6 +44,24 @@ const Inventory: React.FC = () => {
     backpackInventory.type === 'backpack' && backpackInventory.id !== '',
     [backpackInventory.type, backpackInventory.id]
   );
+
+  // Auto-open the backpack panel whenever the inventory is open and a backpack
+  // is worn in the equipment (Torba) slot, and keep it open while it stays worn.
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!inventoryVisible) {
+      autoOpenedRef.current = false;
+      return;
+    }
+    if (backpackInventory.id || autoOpenedRef.current) return;
+    const worn = leftInventory.items.find(
+      (i) => i != null && i.metadata?.equipType === 'backpack' && i.metadata?.isBackpack
+    );
+    if (worn) {
+      autoOpenedRef.current = true;
+      fetchNui('equipItem', { slot: worn.slot, equipType: 'backpack' });
+    }
+  }, [inventoryVisible, leftInventory.items, backpackInventory.id]);
 
   const leftDrag = usePanelDrag('ox_inv_panel_left');
   const rightDrag = usePanelDrag('ox_inv_panel_right');
@@ -202,12 +222,15 @@ const Inventory: React.FC = () => {
             }}
             onMouseDown={() => setFocusedPanel('left')}
           >
-            <LeftInventory
-              onHeaderMouseDown={handleLeftHeaderDown}
-              isLocked={leftDrag.isLocked}
-              onToggleLock={leftDrag.toggleLock}
-              onOpenInfo={() => setInfoVisible(true)}
-            />
+            <div className="left-panel-row">
+              <EquipmentSlots />
+              <LeftInventory
+                onHeaderMouseDown={handleLeftHeaderDown}
+                isLocked={leftDrag.isLocked}
+                onToggleLock={leftDrag.toggleLock}
+                onOpenInfo={() => setInfoVisible(true)}
+              />
+            </div>
           </div>
           <div
             ref={backpackDrag.panelRef}

@@ -233,6 +233,51 @@ return {
 		}
 	},
 
+	-- Headwear equipped into the "Kapa" (Hat) slot (ped prop 0). See data/clothing.lua.
+	['cap'] = {
+		label = 'Cap',
+		weight = 150,
+		width = 1,
+		height = 1,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'mp_masks@standard_car@ds@', clip = 'put_on_mask' },
+			usetime = 800
+		}
+	},
+
+	-- Shirt equipped into the "Majica" (Shirt) slot (ped component 8).
+	['shirt'] = {
+		label = 'Shirt',
+		weight = 250,
+		width = 2,
+		height = 2,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 1000
+		}
+	},
+
+	-- Footwear equipped into the "Obuća" (Shoes) slot (ped component 6).
+	['shoes'] = {
+		label = 'Shoes',
+		weight = 400,
+		width = 2,
+		height = 1,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 1200
+		}
+	},
+
 	['identification'] = {
 		label = 'Identification',
 		width = 1,

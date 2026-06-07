@@ -1,13 +1,13 @@
 @use 'sass:color';
 
-$mainColor: #221c15;
-$textColor: #8a7a61;
-$mainFont: 'Oswald', 'Segoe UI', Roboto, sans-serif;
+$mainColor: #2a2e31;
+$textColor: #aab0b3;
+$mainFont: 'Oswald', 'Bender', 'Roboto Condensed', 'Segoe UI', sans-serif;
 
-$secondaryColor: rgba(13, 11, 7, 0.4);
-$secondaryColorHighlight: rgba(255, 226, 184, 0.07);
+$secondaryColor: rgba(12, 14, 16, 0.45);
+$secondaryColorHighlight: rgba(255, 255, 255, 0.07);
 $secondaryColorLight: rgba(0, 0, 0, 0.5);
-$secondaryColorDark: rgba(13, 11, 7, 0.85);
+$secondaryColorDark: rgba(10, 12, 14, 0.85);
 
 $gridCols: 5;
 $gridRows: 5;
@@ -15,39 +15,39 @@ $gridSize: 10.2vh;
 $gridGap: 2px;
 $containerSize: calc(#{$gridRows} * #{$gridSize + 0.22vh} + #{$gridRows} * #{$gridGap});
 
-$bg-deep: #17120b;
-$bg-panel: #221c15;
-$bg-card: #1d1810;
-$bg-card-hover: #2a2218;
-$border-subtle: rgba(196, 150, 90, 0.10);
-$border-hover: rgba(214, 135, 61, 0.30);
-$text-primary: #c4b399;
-$text-secondary: #8a7a61;
-$text-muted: #6a5d4b;
-$accent: #c47a3c;
-$accent-glow: rgba(196, 122, 60, 0.12);
-$success: #7c9440;
-$danger: #c4502f;
-$warning: #d6873d;
+$bg-deep: #14181b;
+$bg-panel: #23282c;
+$bg-card: #1b2023;
+$bg-card-hover: #2b3236;
+$border-subtle: rgba(255, 255, 255, 0.07);
+$border-hover: rgba(255, 255, 255, 0.20);
+$text-primary: #d7dbde;
+$text-secondary: #99a0a4;
+$text-muted: #6c7378;
+$accent: #aeb6ba;
+$accent-glow: rgba(174, 182, 186, 0.10);
+$success: #84a85a;
+$danger: #c25b4e;
+$warning: #c9a24b;
 
-$type-player: #c47a3c;
-$type-stash: #a0906f;
-$type-shop: #7c9440;
-$type-crafting: #d6873d;
+$type-player: #aeb6ba;
+$type-stash: #9aa0a4;
+$type-shop: #84a85a;
+$type-crafting: #c9a24b;
 
-$rarity-common: #4ade80;
-$rarity-uncommon: #a3e635;
-$rarity-rare: #38bdf8;
-$rarity-epic: #c084fc;
-$rarity-legendary: #fbbf24;
-$type-trunk: #8a7e6a;
-$type-drop: #d6873d;
-$type-glovebox: #9a8d72;
-$type-dumpster: #9bbf3a;
-$type-evidence: #c4502f;
-$type-container: #a0906f;
-$type-newdrop: #d6873d;
-$type-backpack: #c4b399;
+$rarity-common: #9aa6a0;
+$rarity-uncommon: #a3c46a;
+$rarity-rare: #6fa6c4;
+$rarity-epic: #a98fc0;
+$rarity-legendary: #c9a24b;
+$type-trunk: #8a9296;
+$type-drop: #b0855a;
+$type-glovebox: #8f979b;
+$type-dumpster: #8fae5a;
+$type-evidence: #c25b4e;
+$type-container: #969c9e;
+$type-newdrop: #b0855a;
+$type-backpack: #b7bdbf;
 
 :root {
   --cell-size: 5.8vh;
@@ -3664,12 +3664,58 @@ $inv-types: (
 }
 
 /* ----------------------------------------------------------------------------
-   DayZ-style equipment column (Torba / Majica-Jakna / Prsluk / Hlače / Džepovi)
+   DayZ-style theme overrides + equipment column
    ------------------------------------------------------------------------- */
+
+/* Light-grey DayZ header bars with dark text */
+.inventory-grid-header-wrapper,
+.equipment-panel-header,
+.slot-inventory-header {
+  background: linear-gradient(180deg, #c2c8ca 0%, #9fa6a9 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.35) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+
+  &::after { display: none !important; }
+}
+
+.inventory-grid-header-wrapper .grid-header-label,
+.inventory-grid-header-wrapper .grid-header-weight,
+.inventory-grid-header-wrapper .grid-header-weight-separator,
+.inventory-grid-header-wrapper .grid-header-icon,
+.equipment-panel-title,
+.slot-inventory-header {
+  color: #1b2023 !important;
+}
+
+.inventory-grid-header-wrapper .grid-header-icon-wrap {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* header control buttons readable on the light bar */
+.panel-sort-btn,
+.panel-info-btn,
+.panel-lock-btn,
+.panel-close-btn {
+  color: #2c3236 !important;
+
+  &:hover { background: rgba(0, 0, 0, 0.12) !important; }
+}
+.panel-close-btn:hover { background: rgba(194, 91, 78, 0.85) !important; color: #fff !important; }
+.panel-sort-btn:hover { background: rgba(132, 168, 90, 0.85) !important; color: #fff !important; }
+
+/* Translucent DayZ panel bodies (see the world behind) */
+.grid-inventory-container,
+.equipment-panel-body {
+  background: rgba(20, 24, 27, 0.82) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* Equipment column ---------------------------------------------------------- */
 .left-panel-row {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 12px;
 }
 
@@ -3678,121 +3724,114 @@ $inv-types: (
   flex-direction: column;
   flex-shrink: 0;
   align-self: flex-start;
+  width: calc(var(--cell-size) * 2 + 22px);
 }
 
 .equipment-panel-header {
   display: flex;
   align-items: center;
-  padding: 10px 14px;
-  background: $bg-panel;
-  border: 1px solid $border-subtle;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 10px 10px 0 0;
-  position: relative;
-  overflow: hidden;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
-    pointer-events: none;
-  }
+  justify-content: center;
+  padding: 9px 12px;
+  border-radius: 3px 3px 0 0;
 }
 
 .equipment-panel-title {
   font-size: 12px;
   font-family: $mainFont;
   font-weight: 600;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
-  color: $text-primary;
 }
 
 .equipment-panel-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  background: $bg-deep;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid $border-subtle;
   border-top: 0;
-  border-radius: 0 0 10px 10px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 3px 3px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .equipment-slot {
   position: relative;
-  width: calc(var(--cell-size) * 2 + var(--grid-gap));
-  height: calc(var(--cell-size) * 1.18);
+  width: 100%;
+  height: calc(var(--cell-size) * 1.12);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), inset 0 -8px 16px rgba(0, 0, 0, 0.28);
-  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+  box-shadow: inset 0 -10px 18px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+  overflow: hidden;
 
   &:hover {
     border-color: $border-hover;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+    background: rgba(255, 255, 255, 0.05);
   }
 
   &--filled {
-    border-color: rgba($accent, 0.45);
-    box-shadow: inset 0 0 0 1px rgba($accent, 0.12), inset 0 -8px 16px rgba(0, 0, 0, 0.32);
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+
+    .equipment-slot-icon { opacity: 0.18; }
+    .equipment-slot-label { color: $text-primary; }
   }
 
   &--over {
     border-color: $accent;
-    background: rgba($accent, 0.14);
+    background: rgba($accent, 0.16);
     box-shadow: inset 0 0 16px rgba($accent, 0.22);
-    transform: translateY(-1px);
   }
 }
 
 .equipment-slot-icon {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   color: $text-muted;
+  opacity: 0.7;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.85;
+  transition: opacity 0.14s ease;
 
-  svg {
-    width: 100%;
-    height: 100%;
-  }
+  svg { width: 100%; height: 100%; }
 }
 
 .equipment-slot-image {
-  width: 80%;
-  height: 80%;
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  bottom: 16px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.65));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+  pointer-events: none;
 }
 
 .equipment-slot-label {
-  font-size: 9.5px;
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  font-size: 9px;
   font-family: $mainFont;
   font-weight: 500;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: $text-secondary;
   text-align: center;
-  line-height: 1.05;
+  line-height: 1.1;
   max-width: 96%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-bottom: 2px;
 }

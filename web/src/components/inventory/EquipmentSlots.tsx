@@ -9,7 +9,7 @@ import { fetchNui } from '../../utils/fetchNui';
 import { Items } from '../../store/items';
 import { Locale } from '../../store/locale';
 
-type EquipType = 'backpack' | 'top' | 'vest' | 'pants' | 'pockets';
+type EquipType = 'hat' | 'shirt' | 'jacket' | 'vest' | 'pants' | 'shoes' | 'backpack' | 'pockets';
 
 interface SlotConfig {
   type: EquipType;
@@ -18,42 +18,70 @@ interface SlotConfig {
   icon: JSX.Element;
 }
 
+const s = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
 const ICONS: Record<EquipType, JSX.Element> = {
-  backpack: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 8a6 6 0 0 1 12 0v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" />
-      <path d="M9 8a3 3 0 0 1 6 0" /><path d="M6 14h12" />
+  hat: (
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M5 16c0-5 3-9 7-9s7 4 7 9" />
+      <path d="M3 16h18" /><path d="M16 8l3-3" />
     </svg>
   ),
-  top: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 3l4 3 4-3 5 4-3 4-2-1v9H8v-9l-2 1-3-4z" />
+  shirt: (
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M8 3l4 3 4-3 4 3-2.5 3.5L20 11v10H4V11l2.5-1.5L4 6z" />
+    </svg>
+  ),
+  jacket: (
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M8 3l4 2 4-2 4 4-2 2v12h-5V9l-1 1-1-1v12H6V9L4 7z" />
+      <path d="M12 5v16" />
     </svg>
   ),
   vest: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" {...s}>
       <path d="M8 3l4 4 4-4 3 3v15h-6V11l-1 1-1-1v10H5V6z" />
+      <path d="M9 12h2M13 12h2" />
     </svg>
   ),
   pants: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 3h10l-1 18h-4l-1-9-1 9H5z" />
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M7 3h10v3l-1 15h-4l-1-10-1 10H6l-1-15V3" />
+      <path d="M7 3h10" />
+    </svg>
+  ),
+  shoes: (
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M3 7v7c0 1 .5 2 2 2h13c2 0 3-1 3-2.5 0-1-.6-1.7-2-2.3l-6-2.7-2-3z" />
+      <path d="M3 13h17" />
+    </svg>
+  ),
+  backpack: (
+    <svg viewBox="0 0 24 24" {...s}>
+      <path d="M6 9a6 6 0 0 1 12 0v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" />
+      <path d="M9 9a3 3 0 0 1 6 0" /><path d="M8 14h8v4H8z" />
     </svg>
   ),
   pockets: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="6" width="16" height="14" rx="2" /><path d="M4 11h16" /><path d="M9 11v4" /><path d="M15 11v4" />
+    <svg viewBox="0 0 24 24" {...s}>
+      <rect x="4" y="6" width="16" height="14" rx="2" />
+      <path d="M4 11h16M9 11v4M15 11v4" />
     </svg>
   ),
 };
 
 const SLOT_CONFIG: SlotConfig[] = [
-  { type: 'backpack', label: 'ui_equip_backpack', fallback: 'Torba', icon: ICONS.backpack },
-  { type: 'top', label: 'ui_equip_top', fallback: 'Majica / Jakna', icon: ICONS.top },
+  { type: 'hat', label: 'ui_equip_hat', fallback: 'Kapa', icon: ICONS.hat },
+  { type: 'shirt', label: 'ui_equip_shirt', fallback: 'Majica', icon: ICONS.shirt },
+  { type: 'jacket', label: 'ui_equip_jacket', fallback: 'Jakna', icon: ICONS.jacket },
   { type: 'vest', label: 'ui_equip_vest', fallback: 'Prsluk', icon: ICONS.vest },
   { type: 'pants', label: 'ui_equip_pants', fallback: 'Hlače', icon: ICONS.pants },
+  { type: 'shoes', label: 'ui_equip_shoes', fallback: 'Obuća', icon: ICONS.shoes },
+  { type: 'backpack', label: 'ui_equip_backpack', fallback: 'Torba', icon: ICONS.backpack },
   { type: 'pockets', label: 'ui_equip_pockets', fallback: 'Džepovi', icon: ICONS.pockets },
 ];
+
+const CONTAINER_TYPES: EquipType[] = ['backpack', 'pockets'];
 
 const EquipmentSlot: React.FC<{ config: SlotConfig; item?: SlotWithItem }> = ({ config, item }) => {
   const [{ isOver, canDrop }, drop] = useDrop<DragSource, void, { isOver: boolean; canDrop: boolean }>(
@@ -74,7 +102,7 @@ const EquipmentSlot: React.FC<{ config: SlotConfig; item?: SlotWithItem }> = ({ 
 
   const handleClick = () => {
     if (!item) return;
-    if (config.type === 'backpack' || config.type === 'pockets') {
+    if (CONTAINER_TYPES.includes(config.type)) {
       fetchNui('equipItem', { slot: item.slot, equipType: config.type });
     } else {
       fetchNui('unequipItem', { equipType: config.type });
@@ -98,14 +126,9 @@ const EquipmentSlot: React.FC<{ config: SlotConfig; item?: SlotWithItem }> = ({ 
       onContextMenu={handleContext}
       title={itemLabel}
     >
-      {imageUrl ? (
-        <div className="equipment-slot-image" style={{ backgroundImage: `url(${imageUrl})` }} />
-      ) : (
-        <>
-          <div className="equipment-slot-icon">{config.icon}</div>
-          <span className="equipment-slot-label">{label}</span>
-        </>
-      )}
+      <div className="equipment-slot-icon">{config.icon}</div>
+      {imageUrl && <div className="equipment-slot-image" style={{ backgroundImage: `url(${imageUrl})` }} />}
+      <span className="equipment-slot-label">{item ? itemLabel : label}</span>
     </div>
   );
 };

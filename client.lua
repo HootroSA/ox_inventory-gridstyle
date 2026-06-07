@@ -1981,19 +1981,33 @@ end
 client.clothingHistory = client.clothingHistory or {}
 
 RegisterNetEvent('ox_inventory:applyClothing', function(data)
-	if not data or not data.component then return end
+	if not data then return end
 
-	local key = data.equipType or data.component
+	local key = data.equipType or data.component or data.prop
+	local ped = cache.ped
 
-	if client.clothingHistory[key] == nil then
-		client.clothingHistory[key] = {
-			component = data.component,
-			drawable = GetPedDrawableVariation(cache.ped, data.component),
-			texture = GetPedTextureVariation(cache.ped, data.component),
-		}
+	if data.prop ~= nil then
+		if client.clothingHistory[key] == nil then
+			client.clothingHistory[key] = {
+				prop = data.prop,
+				drawable = GetPedPropIndex(ped, data.prop),
+				texture = GetPedPropTextureIndex(ped, data.prop),
+			}
+		end
+		SetPedPropIndex(ped, data.prop, data.drawable or 0, data.texture or 0, true)
+	elseif data.component ~= nil then
+		if client.clothingHistory[key] == nil then
+			client.clothingHistory[key] = {
+				component = data.component,
+				drawable = GetPedDrawableVariation(ped, data.component),
+				texture = GetPedTextureVariation(ped, data.component),
+			}
+		end
+		SetPedComponentVariation(ped, data.component, data.drawable or 0, data.texture or 0, 0)
+	else
+		return
 	end
 
-	SetPedComponentVariation(cache.ped, data.component, data.drawable or 0, data.texture or 0, 0)
 	persistEquippedAppearance()
 
 	if data.label then
@@ -2002,18 +2016,27 @@ RegisterNetEvent('ox_inventory:applyClothing', function(data)
 end)
 
 RegisterNetEvent('ox_inventory:removeClothing', function(data)
-	if not data or not data.component then return end
+	if not data then return end
 
-	local key = data.equipType or data.component
+	local key = data.equipType or data.component or data.prop
 	local prev = client.clothingHistory[key]
+	local ped = cache.ped
 
-	if prev then
-		SetPedComponentVariation(cache.ped, prev.component, prev.drawable, prev.texture, 0)
-		client.clothingHistory[key] = nil
-	else
-		SetPedComponentVariation(cache.ped, data.component, 0, 0, 0)
+	if data.prop ~= nil then
+		if prev then
+			SetPedPropIndex(ped, prev.prop, prev.drawable, prev.texture, true)
+		else
+			ClearPedProp(ped, data.prop)
+		end
+	elseif data.component ~= nil then
+		if prev then
+			SetPedComponentVariation(ped, prev.component, prev.drawable, prev.texture, 0)
+		else
+			SetPedComponentVariation(ped, data.component, 0, 0, 0)
+		end
 	end
 
+	client.clothingHistory[key] = nil
 	persistEquippedAppearance()
 end)
 

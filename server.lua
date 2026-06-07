@@ -410,8 +410,9 @@ RegisterNetEvent('ox_inventory:closeBackpack', function()
 end)
 
 -- DayZ-style equipment slots ------------------------------------------------
--- Clothing equipment types map to GTA ped component ids.
-local EQUIP_COMPONENTS = { top = 11, vest = 9, pants = 4 }
+-- Clothing equipment types map to GTA ped component / prop ids.
+local EQUIP_COMPONENTS = { shirt = 8, jacket = 11, vest = 9, pants = 4, shoes = 6, mask = 1 }
+local EQUIP_PROPS = { hat = 0 }
 local Clothing = lib.load('data.clothing') or {}
 
 local function copyMetadata(metadata)
@@ -458,18 +459,23 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 		return { open = equipType, slot = slot, isBackpack = item.metadata.isBackpack or false }
 	end
 
-	-- Clothing slots apply a ped component through illenium-appearance.
+	-- Clothing slots apply a ped component (or prop) through illenium-appearance.
 	local component = EQUIP_COMPONENTS[equipType]
-	if not component then return false end
+	local prop = EQUIP_PROPS[equipType]
+	if not component and prop == nil then return false end
 
 	-- Per-item appearance comes from data/clothing.lua (works for any clothing
 	-- item) and may be overridden by the item's own metadata.
+	local md = item.metadata
 	local cfg = Clothing[item.name]
-	local drawable = item.metadata and item.metadata.drawable or (cfg and cfg.drawable)
-	local texture = item.metadata and item.metadata.texture or (cfg and cfg.texture) or 0
-	local itemComponent = item.metadata and item.metadata.component or (cfg and cfg.component)
+	local drawable = (md and md.drawable) or (cfg and cfg.drawable)
+	local texture = (md and md.texture) or (cfg and cfg.texture) or 0
+	local target = component or prop
+	local itemTarget = component
+		and ((md and md.component) or (cfg and cfg.component))
+		or ((md and md.prop) or (cfg and cfg.prop))
 
-	if itemComponent ~= component or drawable == nil then
+	if itemTarget ~= target or drawable == nil then
 		return { error = 'cannot_equip' }
 	end
 
@@ -482,9 +488,10 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 	TriggerClientEvent('ox_inventory:applyClothing', source, {
 		equipType = equipType,
 		component = component,
+		prop = prop,
 		drawable = drawable,
 		texture = texture,
-		label = (item.metadata and item.metadata.label) or item.label,
+		label = (md and md.label) or item.label,
 	})
 
 	return { equipped = true }
@@ -512,8 +519,12 @@ lib.callback.register('ox_inventory:unequipItem', function(source, data)
 
 	if not found then return false end
 
-	if EQUIP_COMPONENTS[equipType] then
-		TriggerClientEvent('ox_inventory:removeClothing', source, { equipType = equipType, component = EQUIP_COMPONENTS[equipType] })
+	if EQUIP_COMPONENTS[equipType] or EQUIP_PROPS[equipType] then
+		TriggerClientEvent('ox_inventory:removeClothing', source, {
+			equipType = equipType,
+			component = EQUIP_COMPONENTS[equipType],
+			prop = EQUIP_PROPS[equipType],
+		})
 	elseif equipType == 'backpack' or equipType == 'pockets' then
 		TriggerClientEvent('ox_inventory:equipmentClosePanel', source, { equipType = equipType })
 	end

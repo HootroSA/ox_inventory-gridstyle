@@ -240,14 +240,8 @@ const Inventory: React.FC = () => {
         <div ref={groundDrop} className="inventory-wrapper">
           <div
             ref={leftDrag.panelRef}
-            className={`inventory-panel inventory-panel--left${leftPositioned ? ' inventory-panel--positioned' : ''}${leftDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
-            style={leftPositioned ? {
-              left: leftDrag.position!.x,
-              top: leftDrag.position!.y,
-              zIndex: focusedPanel === 'left' ? 100 : 50,
-            } : {
-              zIndex: focusedPanel === 'left' ? 100 : 50,
-            }}
+            className="inventory-panel inventory-panel--left"
+            style={{ zIndex: focusedPanel === 'left' ? 100 : 50 }}
             onMouseDown={() => setFocusedPanel('left')}
           >
             <LeftInventory
@@ -281,16 +275,10 @@ const Inventory: React.FC = () => {
             )}
             <div
               ref={rightDrag.panelRef}
-              className={`inventory-panel inventory-panel--right${hasRightInventory ? ' inventory-panel--active' : ''}${rightPositioned ? ' inventory-panel--positioned' : ''}${rightDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
-            style={rightPositioned ? {
-              left: rightDrag.position!.x,
-              top: rightDrag.position!.y,
-              zIndex: focusedPanel === 'right' ? 100 : 50,
-            } : {
-              zIndex: focusedPanel === 'right' ? 100 : 50,
-            }}
-            onMouseDown={() => setFocusedPanel('right')}
-          >
+              className={`inventory-panel inventory-panel--right${hasRightInventory ? ' inventory-panel--active' : ''}`}
+              style={{ zIndex: focusedPanel === 'right' ? 100 : 50 }}
+              onMouseDown={() => setFocusedPanel('right')}
+            >
             {hasRightInventory && (
               <RightInventory
                 onHeaderMouseDown={handleRightHeaderDown}

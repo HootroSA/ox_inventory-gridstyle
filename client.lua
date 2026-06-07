@@ -1957,35 +1957,29 @@ function client.refreshEquipment()
 	SendNUIMessage({ action = 'setupEquipment', data = { equipment = equipment or {} } })
 end
 
--- DayZ-style live character preview: a scripted camera framed on the player's
--- ped, shown through the empty centre of the inventory UI.
-local previewCam
+-- DayZ-style live character preview: clone the player ped and render it on
+-- screen through the GTA frontend (empty, no background) so it shows in the
+-- centre of the inventory.
+local clonedPreviewPed
 
 function client.startCharacterPreview()
-	if previewCam then return end
+	if clonedPreviewPed then return end
 
 	local ped = cache.ped
-	local coords = GetEntityCoords(ped)
-	local heading = GetEntityHeading(ped)
-	local rad = math.rad(heading)
-	local fx, fy = -math.sin(rad), math.cos(rad)
-	local dist = 2.3
-
-	previewCam = CreateCameraWithParams('DEFAULT_SCRIPTED_CAMERA',
-		coords.x + fx * dist, coords.y + fy * dist, coords.z + 0.15,
-		0.0, 0.0, 0.0, 42.0, false, 0)
-
-	PointCamAtEntity(previewCam, ped, 0.0, 0.0, -0.15, true)
-	SetCamActive(previewCam, true)
-	RenderScriptCams(true, true, 400, true, true)
+	ActivateFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, false, -1)
+	clonedPreviewPed = ClonePed(ped, GetEntityHeading(ped), true, false)
+	GivePedToPauseMenu(clonedPreviewPed, 2)
+	SetPauseMenuPedLighting(true)
+	SetPauseMenuPedSleepState(true)
 end
 
 function client.stopCharacterPreview()
-	if not previewCam then return end
+	if not clonedPreviewPed then return end
 
-	RenderScriptCams(false, true, 400, true, true)
-	DestroyCam(previewCam, false)
-	previewCam = nil
+	ClearPedInPauseMenu()
+	DeletePed(clonedPreviewPed)
+	clonedPreviewPed = nil
+	RestartFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, -1)
 end
 
 RegisterNUICallback('equipItem', function(data, cb)

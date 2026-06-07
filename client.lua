@@ -1957,29 +1957,46 @@ function client.refreshEquipment()
 	SendNUIMessage({ action = 'setupEquipment', data = { equipment = equipment or {} } })
 end
 
--- DayZ-style live character preview: clone the player ped and render it on
--- screen through the GTA frontend (empty, no background) so it shows in the
--- centre of the inventory.
-local clonedPreviewPed
+-- DayZ-style live character preview.
+--
+-- A scripted camera framed on the player's ped, shown through the empty centre
+-- of the inventory. This composes correctly behind the focused NUI overlay,
+-- unlike GivePedToPauseMenu (the pause-menu frontend hides the NUI and leaves
+-- only the cursor). Tune `distance` / `fov` / `targetHeight` for framing.
+local previewCam
+local previewConfig = {
+	distance = 3.0,
+	fov = 50.0,
+	camHeight = 0.35,
+	targetHeight = 0.30,
+}
 
 function client.startCharacterPreview()
-	if clonedPreviewPed then return end
+	if previewCam then return end
 
 	local ped = cache.ped
-	ActivateFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, false, -1)
-	clonedPreviewPed = ClonePed(ped, GetEntityHeading(ped), true, false)
-	GivePedToPauseMenu(clonedPreviewPed, 2)
-	SetPauseMenuPedLighting(true)
-	SetPauseMenuPedSleepState(true)
+	local root = GetEntityCoords(ped)
+	local rad = math.rad(GetEntityHeading(ped))
+	local forwardX, forwardY = -math.sin(rad), math.cos(rad)
+
+	previewCam = CreateCameraWithParams('DEFAULT_SCRIPTED_CAMERA',
+		root.x + forwardX * previewConfig.distance,
+		root.y + forwardY * previewConfig.distance,
+		root.z + previewConfig.camHeight,
+		0.0, 0.0, 0.0,
+		previewConfig.fov, false, 0)
+
+	PointCamAtCoord(previewCam, root.x, root.y, root.z + previewConfig.targetHeight)
+	SetCamActive(previewCam, true)
+	RenderScriptCams(true, true, 250, true, true)
 end
 
 function client.stopCharacterPreview()
-	if not clonedPreviewPed then return end
+	if not previewCam then return end
 
-	ClearPedInPauseMenu()
-	DeletePed(clonedPreviewPed)
-	clonedPreviewPed = nil
-	RestartFrontendMenu(`FE_MENU_VERSION_EMPTY_NO_BACKGROUND`, -1)
+	RenderScriptCams(false, true, 250, true, true)
+	DestroyCam(previewCam, false)
+	previewCam = nil
 end
 
 RegisterNUICallback('equipItem', function(data, cb)

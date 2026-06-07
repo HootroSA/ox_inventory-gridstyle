@@ -1226,9 +1226,12 @@ button:active {
 .inventory-right-side {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: stretch;
+  gap: 4px;
+  width: calc(var(--cell-size) * 6 + 20px);
   max-height: 88vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .inventory-panel {
@@ -3731,8 +3734,7 @@ $inv-types: (
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  align-self: flex-end;
-  width: max-content;
+  width: 100%;
 }
 
 .equipment-panel-header {
@@ -3754,6 +3756,7 @@ $inv-types: (
 .equipment-panel-body {
   display: grid;
   grid-template-columns: repeat(4, 48px);
+  justify-content: center;
   gap: 4px;
   padding: 8px;
   border: 1px solid $border-subtle;
@@ -3852,14 +3855,22 @@ $inv-types: (
 .equipment-cargo-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  align-self: flex-start;
-  max-height: 82vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 2px;
+  gap: 4px;
+  width: 100%;
 }
 
 .equipment-cargo-section {
-  width: max-content;
+  width: 100%;
+}
+
+/* Make the connected right-side panels share one uniform width */
+.inventory-right-side .grid-inventory-container,
+.inventory-right-side .inventory-grid-header-wrapper {
+  width: 100%;
+}
+
+/* DayZ-style centred section titles */
+.equipment-cargo-section .grid-header-label {
+  flex: 1;
+  text-align: center;
 }

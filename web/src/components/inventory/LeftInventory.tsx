@@ -8,13 +8,14 @@ interface Props {
   onHeaderMouseDown?: (e: React.MouseEvent) => void;
   isLocked?: boolean;
   onToggleLock?: () => void;
+  onOpenInfo?: () => void;
 }
 
-const LeftInventory: React.FC<Props> = ({ onHeaderMouseDown, isLocked, onToggleLock }) => {
+const LeftInventory: React.FC<Props> = ({ onHeaderMouseDown, isLocked, onToggleLock, onOpenInfo }) => {
   const leftInventory = useAppSelector(selectLeftInventory);
 
   return isGridInventory(leftInventory.type) ? (
-    <GridInventory inventory={leftInventory} onHeaderMouseDown={onHeaderMouseDown} isLocked={isLocked} onToggleLock={onToggleLock} />
+    <GridInventory inventory={leftInventory} onHeaderMouseDown={onHeaderMouseDown} isLocked={isLocked} onToggleLock={onToggleLock} onOpenInfo={onOpenInfo} />
   ) : (
     <InventoryGrid inventory={leftInventory} onHeaderMouseDown={onHeaderMouseDown} isLocked={isLocked} onToggleLock={onToggleLock} />
   );

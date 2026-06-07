@@ -23,6 +23,7 @@ import {
 } from '../../store/inventory';
 import { fetchNui } from '../../utils/fetchNui';
 import { Items } from '../../store/items';
+import { Locale } from '../../store/locale';
 import { getItemSizes } from '../../helpers/itemSizeCache';
 import {
   buildOccupancyGrid,
@@ -82,9 +83,10 @@ interface GridInventoryProps {
   onToggleLock?: () => void;
   onClose?: () => void;
   canSort?: boolean;
+  onOpenInfo?: () => void;
 }
 
-const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseDown, isLocked, onToggleLock, onClose, canSort = true }) => {
+const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseDown, isLocked, onToggleLock, onClose, canSort = true, onOpenInfo }) => {
   const dispatch = useAppDispatch();
   const dragRotated = useAppSelector(selectDragRotated);
   const isBusy = useAppSelector((state) => state.inventory.isBusy);
@@ -708,7 +710,14 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
               </div>
             </div>
           )}
-          {(canSort || onToggleLock || onClose) && <div className="grid-header-btn-separator" />}
+          {(canSort || onToggleLock || onClose || onOpenInfo) && <div className="grid-header-btn-separator" />}
+          {onOpenInfo && (
+            <button className="panel-info-btn" onClick={onOpenInfo} title={Locale.ui_usefulcontrols || 'Useful Controls'}>
+              <svg width="13" height="13" viewBox="0 0 524 524" fill="currentColor">
+                <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z" />
+              </svg>
+            </button>
+          )}
           {canSort && !isReadOnly && (
             <button className="panel-sort-btn" onClick={handleSort} title="Auto-sort">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

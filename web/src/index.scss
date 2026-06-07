@@ -1,13 +1,13 @@
 @use 'sass:color';
 
-$mainColor: #141414;
-$textColor: #999999;
-$mainFont: 'Inter', 'Segoe UI', Roboto, sans-serif;
+$mainColor: #221c15;
+$textColor: #8a7a61;
+$mainFont: 'Oswald', 'Segoe UI', Roboto, sans-serif;
 
-$secondaryColor: rgba(10, 10, 10, 0.4);
-$secondaryColorHighlight: rgba(255, 255, 255, 0.06);
+$secondaryColor: rgba(13, 11, 7, 0.4);
+$secondaryColorHighlight: rgba(255, 226, 184, 0.07);
 $secondaryColorLight: rgba(0, 0, 0, 0.5);
-$secondaryColorDark: rgba(10, 10, 10, 0.8);
+$secondaryColorDark: rgba(13, 11, 7, 0.85);
 
 $gridCols: 5;
 $gridRows: 5;
@@ -15,39 +15,39 @@ $gridSize: 10.2vh;
 $gridGap: 2px;
 $containerSize: calc(#{$gridRows} * #{$gridSize + 0.22vh} + #{$gridRows} * #{$gridGap});
 
-$bg-deep: #0a0a0a;
-$bg-panel: #141414;
-$bg-card: #1c1c1c;
-$bg-card-hover: #282828;
-$border-subtle: rgba(255, 255, 255, 0.06);
-$border-hover: rgba(255, 255, 255, 0.15);
-$text-primary: #ebebeb;
-$text-secondary: #999999;
-$text-muted: #5c5c5c;
-$accent: #d4d4d4;
-$accent-glow: rgba(212, 212, 212, 0.08);
-$success: #4ade80;
-$danger: #f87171;
-$warning: #fbbf24;
+$bg-deep: #17120b;
+$bg-panel: #221c15;
+$bg-card: #1d1810;
+$bg-card-hover: #2a2218;
+$border-subtle: rgba(196, 150, 90, 0.10);
+$border-hover: rgba(214, 135, 61, 0.30);
+$text-primary: #c4b399;
+$text-secondary: #8a7a61;
+$text-muted: #6a5d4b;
+$accent: #c47a3c;
+$accent-glow: rgba(196, 122, 60, 0.12);
+$success: #7c9440;
+$danger: #c4502f;
+$warning: #d6873d;
 
-$type-player: #8ab4f8;
-$type-stash: #a0a0a0;
-$type-shop: #4ade80;
-$type-crafting: #f0c24e;
+$type-player: #c47a3c;
+$type-stash: #a0906f;
+$type-shop: #7c9440;
+$type-crafting: #d6873d;
 
 $rarity-common: #4ade80;
 $rarity-uncommon: #a3e635;
 $rarity-rare: #38bdf8;
 $rarity-epic: #c084fc;
 $rarity-legendary: #fbbf24;
-$type-trunk: #7a8590;
-$type-drop: #e08040;
-$type-glovebox: #8a959e;
-$type-dumpster: #84cc16;
-$type-evidence: #e05050;
-$type-container: #909090;
-$type-newdrop: #e08040;
-$type-backpack: #b8b8b8;
+$type-trunk: #8a7e6a;
+$type-drop: #d6873d;
+$type-glovebox: #9a8d72;
+$type-dumpster: #9bbf3a;
+$type-evidence: #c4502f;
+$type-container: #a0906f;
+$type-newdrop: #d6873d;
+$type-backpack: #c4b399;
 
 :root {
   --cell-size: 5.8vh;
@@ -83,11 +83,11 @@ code {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(113, 113, 122, 0.3);
+  background: rgba(106, 86, 54, 0.4);
   border-radius: 2px;
 
   &:hover {
-    background: rgba(113, 113, 122, 0.5);
+    background: rgba(138, 112, 70, 0.6);
   }
 }
 
@@ -1283,6 +1283,15 @@ button:active {
   &:hover {
     background: rgba($success, 0.1);
     color: $success;
+  }
+}
+
+.panel-info-btn {
+  @extend %header-btn;
+
+  &:hover {
+    background: rgba($accent, 0.12);
+    color: $accent;
   }
 }
 

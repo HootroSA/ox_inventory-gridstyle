@@ -260,22 +260,26 @@ const Inventory: React.FC = () => {
               />
             </div>
           </div>
-          <div
-            ref={backpackDrag.panelRef}
-            className={`inventory-panel inventory-panel--backpack${hasBackpack ? ' inventory-panel--active' : ''}${backpackPositioned ? ' inventory-panel--positioned' : ''}${backpackDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
-            style={backpackPositioned ? {
-              left: backpackDrag.position!.x,
-              top: backpackDrag.position!.y,
-            } : {}}
-          >
-            {hasBackpack && (
-              <BackpackInventory
-                onHeaderMouseDown={handleBackpackHeaderDown}
-                isLocked={backpackDrag.isLocked}
-                onToggleLock={backpackDrag.toggleLock}
-              />
-            )}
-          </div>
+          {(hasBackpack || equipmentInventories.length > 0) && (
+            <div className="equipment-cargo-stack">
+              {hasBackpack && (
+                <div
+                  ref={backpackDrag.panelRef}
+                  className="inventory-panel inventory-panel--active equipment-cargo-section"
+                >
+                  <BackpackInventory />
+                </div>
+              )}
+              {equipmentInventories.map((inv) => (
+                <div key={inv.id} className="inventory-panel inventory-panel--active equipment-cargo-section">
+                  <GridInventory
+                    inventory={inv}
+                    onClose={() => fetchNui('unequipItem', { equipType: inv.equipType })}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
           <div
             ref={rightDrag.panelRef}
             className={`inventory-panel inventory-panel--right${hasRightInventory ? ' inventory-panel--active' : ''}${rightPositioned ? ' inventory-panel--positioned' : ''}${rightDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
@@ -296,18 +300,6 @@ const Inventory: React.FC = () => {
               />
             )}
           </div>
-          {equipmentInventories.length > 0 && (
-            <div className="equipment-cargo-stack">
-              {equipmentInventories.map((inv) => (
-                <div key={inv.id} className="inventory-panel inventory-panel--active equipment-cargo-section">
-                  <GridInventory
-                    inventory={inv}
-                    onClose={() => fetchNui('unequipItem', { equipType: inv.equipType })}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
           <Tooltip />
           <InventoryContext />
         </div>

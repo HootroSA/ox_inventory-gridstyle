@@ -411,7 +411,8 @@ end)
 
 -- DayZ-style equipment slots ------------------------------------------------
 -- Clothing equipment types map to GTA ped component ids.
-local EQUIP_COMPONENTS = { top = 11, vest = 9 }
+local EQUIP_COMPONENTS = { top = 11, vest = 9, pants = 4 }
+local Clothing = lib.load('data.clothing') or {}
 
 local function copyMetadata(metadata)
 	local copy = {}
@@ -460,7 +461,17 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 	-- Clothing slots apply a ped component through illenium-appearance.
 	local component = EQUIP_COMPONENTS[equipType]
 	if not component then return false end
-	if not item.metadata or item.metadata.component ~= component then return false end
+
+	-- Per-item appearance comes from data/clothing.lua (works for any clothing
+	-- item) and may be overridden by the item's own metadata.
+	local cfg = Clothing[item.name]
+	local drawable = item.metadata and item.metadata.drawable or (cfg and cfg.drawable)
+	local texture = item.metadata and item.metadata.texture or (cfg and cfg.texture) or 0
+	local itemComponent = item.metadata and item.metadata.component or (cfg and cfg.component)
+
+	if itemComponent ~= component or drawable == nil then
+		return { error = 'cannot_equip' }
+	end
 
 	clearEquipped(playerInventory, equipType, slot)
 
@@ -469,10 +480,11 @@ lib.callback.register('ox_inventory:equipItem', function(source, data)
 	Inventory.SetMetadata(playerInventory, slot, metadata)
 
 	TriggerClientEvent('ox_inventory:applyClothing', source, {
+		equipType = equipType,
 		component = component,
-		drawable = item.metadata.drawable,
-		texture = item.metadata.texture or 0,
-		label = item.metadata.label or item.label,
+		drawable = drawable,
+		texture = texture,
+		label = (item.metadata and item.metadata.label) or item.label,
 	})
 
 	return { equipped = true }
@@ -501,7 +513,7 @@ lib.callback.register('ox_inventory:unequipItem', function(source, data)
 	if not found then return false end
 
 	if EQUIP_COMPONENTS[equipType] then
-		TriggerClientEvent('ox_inventory:removeClothing', source, { component = EQUIP_COMPONENTS[equipType] })
+		TriggerClientEvent('ox_inventory:removeClothing', source, { equipType = equipType, component = EQUIP_COMPONENTS[equipType] })
 	elseif equipType == 'backpack' or equipType == 'pockets' then
 		TriggerClientEvent('ox_inventory:equipmentClosePanel', source, { equipType = equipType })
 	end

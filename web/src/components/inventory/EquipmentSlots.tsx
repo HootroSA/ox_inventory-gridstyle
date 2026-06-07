@@ -9,7 +9,7 @@ import { fetchNui } from '../../utils/fetchNui';
 import { Items } from '../../store/items';
 import { Locale } from '../../store/locale';
 
-type EquipType = 'backpack' | 'top' | 'vest' | 'pockets';
+type EquipType = 'backpack' | 'top' | 'vest' | 'pants' | 'pockets';
 
 interface SlotConfig {
   type: EquipType;
@@ -35,6 +35,11 @@ const ICONS: Record<EquipType, JSX.Element> = {
       <path d="M8 3l4 4 4-4 3 3v15h-6V11l-1 1-1-1v10H5V6z" />
     </svg>
   ),
+  pants: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 3h10l-1 18h-4l-1-9-1 9H5z" />
+    </svg>
+  ),
   pockets: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="6" width="16" height="14" rx="2" /><path d="M4 11h16" /><path d="M9 11v4" /><path d="M15 11v4" />
@@ -46,6 +51,7 @@ const SLOT_CONFIG: SlotConfig[] = [
   { type: 'backpack', label: 'ui_equip_backpack', fallback: 'Torba', icon: ICONS.backpack },
   { type: 'top', label: 'ui_equip_top', fallback: 'Majica / Jakna', icon: ICONS.top },
   { type: 'vest', label: 'ui_equip_vest', fallback: 'Prsluk', icon: ICONS.vest },
+  { type: 'pants', label: 'ui_equip_pants', fallback: 'Hlače', icon: ICONS.pants },
   { type: 'pockets', label: 'ui_equip_pockets', fallback: 'Džepovi', icon: ICONS.pockets },
 ];
 
@@ -95,9 +101,11 @@ const EquipmentSlot: React.FC<{ config: SlotConfig; item?: SlotWithItem }> = ({ 
       {imageUrl ? (
         <div className="equipment-slot-image" style={{ backgroundImage: `url(${imageUrl})` }} />
       ) : (
-        <div className="equipment-slot-icon">{config.icon}</div>
+        <>
+          <div className="equipment-slot-icon">{config.icon}</div>
+          <span className="equipment-slot-label">{label}</span>
+        </>
       )}
-      <span className="equipment-slot-label">{label}</span>
     </div>
   );
 };
@@ -116,10 +124,15 @@ const EquipmentSlots: React.FC = () => {
   }, [leftInventory.items]);
 
   return (
-    <div className="equipment-column">
-      {SLOT_CONFIG.map((config) => (
-        <EquipmentSlot key={config.type} config={config} item={equipped[config.type]} />
-      ))}
+    <div className="equipment-panel">
+      <div className="equipment-panel-header">
+        <span className="equipment-panel-title">{Locale.ui_equipment || 'Oprema'}</span>
+      </div>
+      <div className="equipment-panel-body">
+        {SLOT_CONFIG.map((config) => (
+          <EquipmentSlot key={config.type} config={config} item={equipped[config.type]} />
+        ))}
+      </div>
     </div>
   );
 };

@@ -1954,6 +1954,8 @@ RegisterNUICallback('equipItem', function(data, cb)
 			client.openBackpack(result.slot)
 		elseif result.open == 'pockets' then
 			client.openInventory('container', result.slot)
+		elseif result.error then
+			lib.notify({ type = 'error', description = locale(result.error) })
 		end
 	end
 
@@ -1974,8 +1976,22 @@ local function persistEquippedAppearance()
 	end
 end
 
+-- Remembers what the ped was wearing before a clothing item was equipped, so
+-- removing the item restores the original look instead of stripping to nothing.
+client.clothingHistory = client.clothingHistory or {}
+
 RegisterNetEvent('ox_inventory:applyClothing', function(data)
 	if not data or not data.component then return end
+
+	local key = data.equipType or data.component
+
+	if client.clothingHistory[key] == nil then
+		client.clothingHistory[key] = {
+			component = data.component,
+			drawable = GetPedDrawableVariation(cache.ped, data.component),
+			texture = GetPedTextureVariation(cache.ped, data.component),
+		}
+	end
 
 	SetPedComponentVariation(cache.ped, data.component, data.drawable or 0, data.texture or 0, 0)
 	persistEquippedAppearance()
@@ -1988,7 +2004,16 @@ end)
 RegisterNetEvent('ox_inventory:removeClothing', function(data)
 	if not data or not data.component then return end
 
-	SetPedComponentVariation(cache.ped, data.component, 0, 0, 0)
+	local key = data.equipType or data.component
+	local prev = client.clothingHistory[key]
+
+	if prev then
+		SetPedComponentVariation(cache.ped, prev.component, prev.drawable, prev.texture, 0)
+		client.clothingHistory[key] = nil
+	else
+		SetPedComponentVariation(cache.ped, data.component, 0, 0, 0)
+	end
+
 	persistEquippedAppearance()
 end)
 

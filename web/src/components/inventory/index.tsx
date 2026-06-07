@@ -128,6 +128,26 @@ const Inventory: React.FC = () => {
 
   useNuiEvent('refreshSlots', (data) => dispatch(refreshSlots(data)));
 
+  // Automatically tidy newly opened panels (backpack + player-owned containers).
+  const SORTABLE_RIGHT = ['container', 'backpack', 'trunk', 'glovebox', 'stash'];
+  const sortedRightRef = useRef('');
+  useEffect(() => {
+    if (hasRightInventory && rightInventory.id !== sortedRightRef.current && SORTABLE_RIGHT.includes(rightInventory.type)) {
+      sortedRightRef.current = rightInventory.id;
+      fetchNui('sortInventory', { inventoryId: rightInventory.id });
+    }
+    if (!hasRightInventory) sortedRightRef.current = '';
+  }, [hasRightInventory, rightInventory.id, rightInventory.type]);
+
+  const sortedBackpackRef = useRef('');
+  useEffect(() => {
+    if (hasBackpack && backpackInventory.id !== sortedBackpackRef.current) {
+      sortedBackpackRef.current = backpackInventory.id;
+      fetchNui('sortInventory', { inventoryId: backpackInventory.id });
+    }
+    if (!hasBackpack) sortedBackpackRef.current = '';
+  }, [hasBackpack, backpackInventory.id]);
+
   useNuiEvent<{ backpackInventory: InventoryProps }>('setupBackpack', (data) => {
     dispatch(setupBackpack(data.backpackInventory));
   });

@@ -173,8 +173,7 @@ return {
 	},
 
 	-- Worn clothing equipped into the "Majica / Jakna" (Top) slot (ped component 11).
-	-- Create the item with metadata { component = 11, drawable = <id>, texture = <id> }
-	-- so it can be applied to the ped through illenium-appearance.
+	-- Appearance is configured in data/clothing.lua (works for any clothing item).
 	['jacket'] = {
 		label = 'Jacket',
 		weight = 800,
@@ -190,7 +189,6 @@ return {
 	},
 
 	-- Worn clothing equipped into the "Prsluk" (Vest) slot (ped component 9).
-	-- Create the item with metadata { component = 9, drawable = <id>, texture = <id> }.
 	['vest'] = {
 		label = 'Vest',
 		weight = 1500,
@@ -202,6 +200,36 @@ return {
 		client = {
 			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
 			usetime = 2000
+		}
+	},
+
+	-- T-shirt, also fits the "Majica / Jakna" (Top) slot. See data/clothing.lua.
+	['tshirt'] = {
+		label = 'T-Shirt',
+		weight = 300,
+		width = 2,
+		height = 2,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 1000
+		}
+	},
+
+	-- Worn clothing equipped into the "Hlače" (Pants) slot (ped component 4).
+	['pants'] = {
+		label = 'Pants',
+		weight = 600,
+		width = 2,
+		height = 2,
+		stack = false,
+		close = false,
+		consume = 0,
+		client = {
+			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
+			usetime = 1500
 		}
 	},
 

@@ -66,7 +66,7 @@ const SlotTooltip: React.ForwardRefRenderFunction<
   const hasDetails = !isShop && !isCraft && (
     item.durability !== undefined ||
     item.metadata?.ammo !== undefined ||
-    ammoName ||
+    ammoName || additionalMetadata.length > 0 ||
     item.metadata?.serial ||
     (item.metadata?.components && item.metadata?.components[0]) ||
     item.metadata?.weapontint ||
